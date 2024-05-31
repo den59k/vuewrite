@@ -1,0 +1,37 @@
+{
+  "name": "vuewrite",
+  "description": "Rich Text Editor based on Vue3 reactivity",
+  "private": false,
+  "version": "0.0.0",
+  "type": "module",
+  "author": "den59k",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/den59k/vuewrite.git"
+  },
+  "main": "dist/vuewrite.js",
+  "types": "dist/vuewrite.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "build:app": "vue-tsc && vite build -c vite-app.config.ts",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vueuse/core": "^10.10.0",
+    "color2k": "^2.0.3",
+    "sass": "^1.77.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vite-plugin-dts": "^3.9.1",
+    "vue-tsc": "^2.0.6",
+    "vuesix": "^1.0.12"
+  },
+  "files": [
+    "dist"
+  ]
+}
