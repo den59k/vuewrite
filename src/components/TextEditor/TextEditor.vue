@@ -10,7 +10,7 @@
       :key="block.id" 
       :block="block" 
       :slots="slots"
-      :decorator="decorator"
+      :decorator="props.decorator"
       @postrender="onPostRender"
     />
     <slot v-if="store.blocks.length === 1 && store.blocks[0].text === ''" name="placeholder"></slot>
@@ -21,23 +21,62 @@
 import { useEventListener } from '@vueuse/core';
 import { nextTick, ref, useSlots, watch } from 'vue';
 import { calcNodeByOffset, calcOffsetToNode, findParent } from '../../utils/richEditorUtils';
-import { Decorator, TextEditorStore } from './TextEditorStore';
+import { Decorator, Style, TextEditorStore, uid } from './TextEditorStore';
 import { isEqual } from 'vuesix';
 import TextEditorBlock from './TextEditorBlock.vue';
 
-const props = defineProps<{ store: TextEditorStore, placeholder?: string, decorator?: Decorator }>()
-const emit = defineEmits([ "keydown" ])
+const props = defineProps<{ decorator?: Decorator, single?: boolean, modelValue?: string[] | string, styles?: Style[] | Style[][] }>()
+const emit = defineEmits([ "keydown", "update:modelValue", "update:styles" ])
 const slots = useSlots()
 
 const textEditorRef = ref<HTMLElement>()
-const store = props.store ?? new TextEditorStore()
+const store = new TextEditorStore()
+
+let modelValue: string | string[] = ""
+watch(() => props.modelValue, (newValue) => {
+  if (newValue === undefined || newValue === null || newValue === modelValue) return
+  if (!Array.isArray(newValue)) {
+    store.blocks[0].text = newValue
+    return
+  } else {
+    for (let i = store.blocks.length; i < newValue.length; i++) {
+      store.blocks.push({ id: uid(), text: "", styles: [] })
+    }
+    store.blocks.length = newValue.length
+    for (let i = 0; i < newValue.length; i++) {
+      store.blocks[i].text = newValue[i]
+    }
+  }
+}, { immediate: true })
+
+let styles: Style[] | Style[][]
+watch(() => props.styles, (newStyles) => {
+  if (!newStyles || newStyles.length === 0 || newStyles === styles) return
+  for (let i = 0; i < store.blocks.length; i++) {
+    if (newStyles.length <= i) break
+    const style = props.single? (newStyles as Style[]): (newStyles as Style[][])[i]
+    store.blocks[i].styles = style
+  }
+}, { immediate: true })
+
+watch(() => store.blocks, () => {
+  if (props.single) {
+    modelValue = store.blocks[0].text
+    styles = store.blocks[0].styles
+  } else {
+    modelValue = store.blocks.map(item => item.text)
+    styles = store.blocks.map(item => item.styles)
+  }
+  emit("update:modelValue", modelValue)
+  emit("update:styles", styles)
+}, { deep: true })
 
 const onKeyDown = (e: KeyboardEvent) => {
   emit("keydown", e)
   if (e.defaultPrevented) return
   if (e.code === "Enter") {
     e.preventDefault()
-    if (e.shiftKey) {
+    if (e.shiftKey || props.single) {
       store.insertText("\n")
     } else {
       store.addNewLine()
@@ -112,8 +151,30 @@ const applySelection = () => {
 watch(() => store.selection, applySelection, { deep: true, flush: "post" })
 
 defineExpose({
-  store
+  currentStyles: store._currentStyles,
+  currentBlock: store._currentBlock,
+  isCollapsed: store._isCollapsed,
+  selection: store.selection,
+  toggleStyle: store.toggleStyle.bind(store),
+  applyStyle: store.applyStyle.bind(store),
+  removeStyle: store.removeStyle.bind(store),
+  insertText: store.insertText.bind(store)
 })
+
+</script>
+
+<script lang="ts">
+
+export type TextEditorRef = Pick<TextEditorStore, 
+  "currentStyles" | 
+  "currentBlock" | 
+  "isCollapsed" |
+  "selection" |
+  "toggleStyle" |
+  "applyStyle" |
+  "removeStyle" |
+  "insertText"
+>
 
 </script>
 

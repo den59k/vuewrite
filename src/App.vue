@@ -8,7 +8,10 @@
       <VColorPicker v-model="textColor"/>
     </div>
     <TextEditor 
-      :store="textEditorStore" 
+      ref="textEditorRef"
+      v-model="text"
+      v-model:styles="styles"
+      single
       :decorator="decorator" 
       class="text-editor"
       @keydown="onKeyDown"
@@ -31,16 +34,15 @@
         </div>
       </template>
     </TextEditor>
-    <div v-if="false" class="text-small">{{ textEditorStore.currentStyles }}</div>
-    <div v-if="false" class="text-small">{{ textEditorStore.blocks }}</div>
-    <div v-if="false" class="text-small">{{ textEditorStore.selection }}</div>
+    <div class="text-small">{{ text }}</div>
+    <div class="text-small">{{ styles }}</div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue';
-import TextEditor from './components/TextEditor/TextEditor.vue';
-import { Style, TextEditorStore } from './components/TextEditor/TextEditorStore';
+import { computed, ref, shallowRef } from 'vue';
+import TextEditor, { TextEditorRef } from './components/TextEditor/TextEditor.vue';
+import { Style } from './components/TextEditor/TextEditorStore';
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
@@ -49,15 +51,19 @@ import UnderlineIcon from './components/icons/UnderlineIcon.vue'
 import VSelect from './components/VSelect.vue';
 import VColorPicker from './components/VColorPicker.vue';
 
-const textEditorStore = new TextEditorStore()
+const textEditorRef = shallowRef<TextEditorRef>()
+const text = ref("")
+const styles = ref([])
 
 const buttons = computed(() => {
-  const currentStyles = textEditorStore.currentStyles
+  const textEditor = textEditorRef.value
+  if (!textEditor) return []
+  const currentStyles = textEditor.currentStyles
   return [
-    { icon: BoldIcon, active: currentStyles.has("bold"), onClick: () => textEditorStore.toggleStyle("bold") },
-    { icon: ItalicIcon, active: currentStyles.has("italic"), onClick: () => textEditorStore.toggleStyle("italic") },
-    { icon: UnderlineIcon, active: currentStyles.has("underline"), onClick: () => textEditorStore.toggleStyle("underline") },
-    { icon: ListIcon, active: currentStyles.has("list"), onClick: () => textEditorStore.toggleStyle("list") }
+    { icon: BoldIcon, active: currentStyles.has("bold"), onClick: () => textEditor.toggleStyle("bold") },
+    { icon: ItalicIcon, active: currentStyles.has("italic"), onClick: () => textEditor.toggleStyle("italic") },
+    { icon: UnderlineIcon, active: currentStyles.has("underline"), onClick: () => textEditor.toggleStyle("underline") },
+    { icon: ListIcon, active: currentStyles.has("list"), onClick: () => textEditor.toggleStyle("list") }
   ]
 })
 
@@ -71,28 +77,28 @@ const items = [
 
 const textColor = computed({
   get() {
-    const _textColor = textEditorStore.currentStyles.get("color")
+    const _textColor = textEditorRef.value?.currentStyles.get("color")
     return _textColor?.meta.color ?? "#FFFFFF"
   },
   set(value) {
     if (value === "#FFFFFF") {
-      textEditorStore.removeStyle("color")
+      textEditorRef.value?.removeStyle("color")
     } else {
-      textEditorStore.applyStyle("color", { color: value })
+      textEditorRef.value?.applyStyle("color", { color: value })
     }
   }
 })
 
 const blockType = computed({
   get() {
-    return textEditorStore.currentBlock?.type ?? "default"
+    return textEditorRef.value?.currentBlock?.type ?? "default"
   },
   set(type) {
-    if (!textEditorStore.currentBlock) return
+    if (!textEditorRef.value?.currentBlock) return
     if (type === "default") {
-      textEditorStore.currentBlock.type = undefined
+      textEditorRef.value.currentBlock.type = undefined
     } else {
-      textEditorStore.currentBlock.type = type ?? undefined
+      textEditorRef.value.currentBlock.type = type ?? undefined
     }
   }
 })
@@ -100,13 +106,13 @@ const blockType = computed({
 const onKeyDown = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
     if (e.code === "KeyB") {
-      textEditorStore.toggleStyle("bold")
+      textEditorRef.value?.toggleStyle("bold")
     }
     if (e.code === "KeyI") {
-      textEditorStore.toggleStyle("italic")
+      textEditorRef.value?.toggleStyle("italic")
     }
     if (e.code === "KeyU") {
-      textEditorStore.toggleStyle("underline")
+      textEditorRef.value?.toggleStyle("underline")
     }
   }
 }

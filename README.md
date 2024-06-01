@@ -11,26 +11,33 @@ You can watch the demo [here](https://vuewrite.easix.ru)
 
 ```vue
 <template>
-<TextEditor 
-  :store="textEditorStore" 
-  class="text-editor"
-  :decorator="decorator" 
-  @keydown="onKeyDown"
-/>
+  <TextEditor 
+    ref="textEditorRef" 
+    v-model="modelValue"
+    single
+    class="text-editor"
+    :decorator="decorator" 
+    @keydown="onKeyDown"
+  />
 </template>
 
 <script lang="ts">
+import { TextEditor, TextEditorRef } from 'vuewrite'
+
+const textEditorRef = shallowRef<TextEditorRef>()
+const modelValue = ref("")
 
 const onKeyDown = (e: KeyboardEvent) => {
+  if (!textEditorRef.value) return
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
     if (e.code === "KeyB") {
-      textEditorStore.toggleStyle("bold")
+      textEditorRef.value.toggleStyle("bold")
     }
     if (e.code === "KeyI") {
-      textEditorStore.toggleStyle("italic")
+      textEditorRef.value.toggleStyle("italic")
     }
     if (e.code === "KeyU") {
-      textEditorStore.toggleStyle("underline")
+      textEditorRef.value.toggleStyle("underline")
     }
   }
 }

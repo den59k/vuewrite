@@ -14,7 +14,7 @@ export class TextEditorStore {
     focus: { blockId: this.blocks[0].id, offset: 0 } 
   })
   
-  private _isCollapsed = computed(() => {
+  _isCollapsed = computed(() => {
     return this.selection.anchor.blockId === this.selection.focus.blockId && 
       this.selection.anchor.offset === this.selection.focus.offset
   })
@@ -22,7 +22,7 @@ export class TextEditorStore {
     return this._isCollapsed.value
   }
 
-  private _currentBlock = computed(() => {
+  _currentBlock = computed(() => {
     if (this.selection.anchor.blockId !== this.selection.focus.blockId) return null
     return this.blocks.find(item => item.id === this.selection.anchor.blockId) ?? null
   })
@@ -149,9 +149,10 @@ export class TextEditorStore {
     this.blocks[startIndex].text = startText+endText
   }
 
-  private _currentStyles = computed(() => {
+  _currentStyles = computed(() => {
     const [ start, end, startIndex, endIndex ] = this.startAndEnd
     const styles = new Map<string, Style>()
+    if (startIndex < 0) return styles
     for (let i = startIndex; i <= endIndex; i++) {
       for (let style of this.blocks[i].styles) {
         if (i === startIndex && start.offset < style.start) continue
@@ -256,4 +257,4 @@ export class TextEditorStore {
 }
 
 let uidCounter = 0
-const uid = () => (uidCounter++).toString()
+export const uid = () => (uidCounter++).toString()
