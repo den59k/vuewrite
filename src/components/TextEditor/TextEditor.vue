@@ -19,13 +19,19 @@
 
 <script lang="ts" setup>
 import { useEventListener } from '@vueuse/core';
-import { nextTick, ref, useSlots, watch } from 'vue';
+import { nextTick, onMounted, ref, useSlots, watch } from 'vue';
 import { calcNodeByOffset, calcOffsetToNode, findParent } from '../../utils/richEditorUtils';
 import { Decorator, Style, TextEditorStore, uid } from './TextEditorStore';
 import { isEqual } from 'vuesix';
 import TextEditorBlock from './TextEditorBlock.vue';
 
-const props = defineProps<{ decorator?: Decorator, single?: boolean, modelValue?: string[] | string, styles?: Style[] | Style[][] }>()
+const props = defineProps<{ 
+  decorator?: Decorator, 
+  single?: boolean, 
+  modelValue?: string[] | string, 
+  styles?: Style[] | Style[][],
+  autofocus?: boolean
+}>()
 const emit = defineEmits([ "keydown", "update:modelValue", "update:styles" ])
 const slots = useSlots()
 
@@ -110,6 +116,10 @@ useEventListener(document, "selectionchange", () => {
     const offset = anchor === sel.focusNode? 0: (calcOffsetToNode(focus, sel.focusNode!) + sel.focusOffset)
     store.selection.focus = { blockId: focus.getAttribute("data-block-id")!, offset }
   }
+  if (store.isFocused.value !== !!focus || !!anchor) {
+    store.isFocused.value = !!focus || !!anchor
+  }
+  if (!anchor && !focus)
   cachedSelection = JSON.parse(JSON.stringify(store.selection))
 })
 
@@ -126,6 +136,10 @@ const onPostRender = () => {
 }
 
 const applySelection = () => {
+  if (!store.isFocused.value) {
+    cachedSelection = JSON.parse(JSON.stringify(store.selection))
+    return
+  }
   if (isEqual(store.selection, cachedSelection)) return
 
   const nativeSelection = window.getSelection()!
@@ -150,15 +164,24 @@ const applySelection = () => {
 
 watch(() => store.selection, applySelection, { deep: true, flush: "post" })
 
+onMounted(() => {
+  if (props.autofocus) {
+    textEditorRef.value?.focus()
+    applySelection()
+  }
+})
+
 defineExpose({
   currentStyles: store._currentStyles,
   currentBlock: store._currentBlock,
   isCollapsed: store._isCollapsed,
   selection: store.selection,
+  isFocused: store.isFocused,
   toggleStyle: store.toggleStyle.bind(store),
   applyStyle: store.applyStyle.bind(store),
   removeStyle: store.removeStyle.bind(store),
-  insertText: store.insertText.bind(store)
+  insertText: store.insertText.bind(store),
+  selectAll: store.selectAll.bind(store)
 })
 
 </script>
@@ -173,8 +196,9 @@ export type TextEditorRef = Pick<TextEditorStore,
   "toggleStyle" |
   "applyStyle" |
   "removeStyle" |
-  "insertText"
->
+  "insertText" |
+  "selectAll"
+> & { isFocused: boolean }
 
 </script>
 

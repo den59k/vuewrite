@@ -11,9 +11,9 @@
       ref="textEditorRef"
       v-model="text"
       v-model:styles="styles"
-      single
       :decorator="decorator" 
       class="text-editor"
+      autofocus
       @keydown="onKeyDown"
     >
       <template #h1="{ content, props }">
@@ -34,8 +34,9 @@
         </div>
       </template>
     </TextEditor>
-    <div class="text-small">{{ text }}</div>
-    <div class="text-small">{{ styles }}</div>
+    <div class="text-small">Focused: {{ textEditorRef?.isFocused }}</div>
+    <div class="text-small">Text: {{ text }}</div>
+    <div class="text-small">Styles: {{ styles }}</div>
   </div>
 </template>
 
@@ -46,24 +47,32 @@ import { Style } from './components/TextEditor/TextEditorStore';
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
-import ListIcon from './components/icons/ListIcon.vue'
 import UnderlineIcon from './components/icons/UnderlineIcon.vue'
 import VSelect from './components/VSelect.vue';
 import VColorPicker from './components/VColorPicker.vue';
 
 const textEditorRef = shallowRef<TextEditorRef>()
-const text = ref("")
+const text = ref([""])
 const styles = ref([])
+
+const toggleStyle = (style: string) => {
+  if (!textEditorRef.value) return
+  if (!textEditorRef.value.isFocused) {
+    textEditorRef.value.selectAll()
+    textEditorRef.value.toggleStyle(style)
+  } else {
+    textEditorRef.value.toggleStyle(style)
+  }
+}
 
 const buttons = computed(() => {
   const textEditor = textEditorRef.value
   if (!textEditor) return []
   const currentStyles = textEditor.currentStyles
   return [
-    { icon: BoldIcon, active: currentStyles.has("bold"), onClick: () => textEditor.toggleStyle("bold") },
-    { icon: ItalicIcon, active: currentStyles.has("italic"), onClick: () => textEditor.toggleStyle("italic") },
-    { icon: UnderlineIcon, active: currentStyles.has("underline"), onClick: () => textEditor.toggleStyle("underline") },
-    { icon: ListIcon, active: currentStyles.has("list"), onClick: () => textEditor.toggleStyle("list") }
+    { icon: BoldIcon, active: currentStyles.has("bold"), onClick: () => toggleStyle("bold") },
+    { icon: ItalicIcon, active: currentStyles.has("italic"), onClick: () => toggleStyle("italic") },
+    { icon: UnderlineIcon, active: currentStyles.has("underline"), onClick: () => toggleStyle("underline") }
   ]
 })
 

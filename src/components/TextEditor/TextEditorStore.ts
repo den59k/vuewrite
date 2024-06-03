@@ -1,4 +1,4 @@
-import { HTMLAttributes, computed, reactive } from "vue"
+import { HTMLAttributes, computed, reactive, ref } from "vue"
 import { clamp, isEqual } from "vuesix"
 
 export type Style = { start: number, end: number, style: string, meta?: any }
@@ -16,11 +16,12 @@ export class TextEditorStore {
   
   _isCollapsed = computed(() => {
     return this.selection.anchor.blockId === this.selection.focus.blockId && 
-      this.selection.anchor.offset === this.selection.focus.offset
+    this.selection.anchor.offset === this.selection.focus.offset
   })
   get isCollapsed() {
     return this._isCollapsed.value
   }
+  isFocused = ref(false)
 
   _currentBlock = computed(() => {
     if (this.selection.anchor.blockId !== this.selection.focus.blockId) return null
@@ -253,6 +254,12 @@ export class TextEditorStore {
     } else {
       this.applyStyle(style)
     }
+  }
+
+  selectAll() {
+    this.selection.anchor = { blockId: this.blocks[0].id, offset: 0 }
+    const lastBlock = this.blocks[this.blocks.length-1]
+    this.selection.focus = { blockId: lastBlock.id, offset: lastBlock.text.length }
   }
 }
 
