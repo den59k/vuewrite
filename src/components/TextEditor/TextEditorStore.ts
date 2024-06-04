@@ -30,6 +30,22 @@ export class TextEditorStore {
   get currentBlock() { 
     return this._currentBlock.value
   }
+
+  _selectedText = computed(() => {
+    if (this.isCollapsed) return ""
+    const [ start, end, startIndex, endIndex ] = this.startAndEnd
+    if (startIndex === endIndex) {
+      return this.blocks[startIndex].text.slice(start.offset, end.offset)
+    }
+    const startText = this.blocks[startIndex].text.slice(start.offset)
+    const endText = this.blocks[endIndex].text.slice(0, end.offset)
+    const arr = [ startText, ...this.blocks.slice(startIndex+1, endIndex).map(block => block.text), endText ]
+    return arr.join("\n")
+  })
+  
+  get selectedText() {
+    return this._selectedText.value
+  }
   
   moveOffset(newOffset: number) {
     const delta = newOffset - this.selection.anchor.offset

@@ -4,6 +4,9 @@
     contenteditable 
     @input="store.onInput"
     @keydown="onKeyDown"
+    @copy="onCopy"
+    @paste="onPaste"
+    @cut="onCut"
   >
     <TextEditorBlock 
       v-for="block in store.blocks" 
@@ -170,6 +173,24 @@ onMounted(() => {
     applySelection()
   }
 })
+
+const onCopy = (e: ClipboardEvent) => {
+  e.preventDefault()
+  navigator.clipboard.writeText(store.selectedText)
+}
+
+const onCut = (e: ClipboardEvent) => {
+  e.preventDefault()
+  navigator.clipboard.writeText(store.selectedText)
+  store.deleteSelected()
+}
+
+const onPaste = (e: ClipboardEvent) => {
+  e.preventDefault()
+  const text = e.clipboardData?.getData('Text')
+  if (!text) return
+  store.insertText(text)
+}
 
 defineExpose({
   currentStyles: store._currentStyles,
