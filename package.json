@@ -2,7 +2,7 @@
   "name": "vuewrite",
   "description": "Rich Text Editor based on Vue3 reactivity",
   "private": false,
-  "version": "0.0.5",
+  "version": "0.0.5-a",
   "type": "module",
   "license": "MIT",
   "author": "den59k",
