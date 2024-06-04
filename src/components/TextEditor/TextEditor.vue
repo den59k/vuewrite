@@ -33,7 +33,8 @@ const props = defineProps<{
   single?: boolean, 
   modelValue?: string[] | string, 
   styles?: Style[] | Style[][],
-  autofocus?: boolean
+  autofocus?: boolean,
+  autoselect?: boolean
 }>()
 const emit = defineEmits([ "keydown", "update:modelValue", "update:styles" ])
 const slots = useSlots()
@@ -108,16 +109,16 @@ const onKeyDown = (e: KeyboardEvent) => {
 let cachedSelection = {}
 useEventListener(document, "selectionchange", () => {
   const sel = window.getSelection()!
-  const anchor = findParent(sel.anchorNode!, el => el.hasAttribute("data-block-id"))
+  const anchor = findParent(sel.anchorNode!, el => el.hasAttribute("data-vw-block-id"))
   if (anchor) {
     const offset = anchor === sel.anchorNode? 0: (calcOffsetToNode(anchor, sel.anchorNode!) + sel.anchorOffset)
-    store.selection.anchor = { blockId: anchor.getAttribute("data-block-id")!, offset }
+    store.selection.anchor = { blockId: anchor.getAttribute("data-vw-block-id")!, offset }
   }
 
-  const focus = findParent(sel.focusNode!, el => el.hasAttribute("data-block-id"))
+  const focus = findParent(sel.focusNode!, el => el.hasAttribute("data-vw-block-id"))
   if (focus) {
     const offset = anchor === sel.focusNode? 0: (calcOffsetToNode(focus, sel.focusNode!) + sel.focusOffset)
-    store.selection.focus = { blockId: focus.getAttribute("data-block-id")!, offset }
+    store.selection.focus = { blockId: focus.getAttribute("data-vw-block-id")!, offset }
   }
   if (store.isFocused.value !== !!focus || !!anchor) {
     store.isFocused.value = !!focus || !!anchor
@@ -149,10 +150,10 @@ const applySelection = () => {
   let anchor: Node | null = null
   let focus: Node | null = null
   for (let item of textEditorRef.value!.children) {
-    if (item.getAttribute("data-block-id") === store.selection.anchor.blockId) {
+    if (item.getAttribute("data-vw-block-id") === store.selection.anchor.blockId) {
       anchor = item
     }
-    if (item.getAttribute("data-block-id") === store.selection.focus.blockId) {
+    if (item.getAttribute("data-vw-block-id") === store.selection.focus.blockId) {
       focus = item
     }
   }
@@ -171,6 +172,10 @@ onMounted(() => {
   if (props.autofocus) {
     textEditorRef.value?.focus()
     applySelection()
+  }
+  if (props.autoselect) {
+    textEditorRef.value?.focus()
+    store.selectAll()
   }
 })
 

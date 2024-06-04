@@ -20,7 +20,7 @@ const slot = computed(() => {
 })
 
 const blockProps = {
-  "data-block-id": props.block.id
+  "data-vw-block-id": props.block.id
 }
 
 const renderBlockPart = (text: string, styles: Style[]) => {
