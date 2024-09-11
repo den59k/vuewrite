@@ -10,7 +10,6 @@
     <TextEditor 
       ref="textEditorRef"
       v-model="text"
-      v-model:styles="styles"
       :decorator="decorator" 
       class="text-editor"
       autofocus
@@ -36,7 +35,6 @@
     </TextEditor>
     <div class="text-small">Focused: {{ textEditorRef?.isFocused }}</div>
     <div class="text-small">Text: {{ text }}</div>
-    <div class="text-small">Styles: {{ styles }}</div>
   </div>
 </template>
 
@@ -52,8 +50,7 @@ import VSelect from './components/VSelect.vue';
 import VColorPicker from './components/VColorPicker.vue';
 
 const textEditorRef = shallowRef<TextEditorRef>()
-const text = ref([""])
-const styles = ref([])
+const text = ref([{ text: "" }])
 
 const toggleStyle = (style: string) => {
   if (!textEditorRef.value) return
