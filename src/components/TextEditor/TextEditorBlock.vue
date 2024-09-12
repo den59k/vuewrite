@@ -75,7 +75,6 @@ const cleanTree = (count: number) => {
           if (i === 0 && child.nodeType === Node.TEXT_NODE && child.textContent === '') continue
           if ("__vnode" in child) continue
           if (child.nodeType === Node.TEXT_NODE && child.textContent?.endsWith("\n")) continue
-
           el.removeChild(child)
           break
         }
@@ -93,6 +92,7 @@ const cleanTree = (count: number) => {
 
 const content = () => {
   const block = props.block
+  if (block.editable === false) return null
   if (block.text.length === 0) {
     cleanTree(1)
     return [h("br")]

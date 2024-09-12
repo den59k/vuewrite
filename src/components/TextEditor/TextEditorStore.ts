@@ -2,7 +2,7 @@ import { HTMLAttributes, computed, reactive, ref } from "vue"
 import { clamp, isEqual } from "vuesix"
 
 export type Style = { start: number, end: number, style: string, meta?: any }
-export type Block = { id: string, text: string, type?: string, styles: Style[] }
+export type Block = { id: string, text: string, type?: string, styles: Style[], editable?: boolean }
 export type Decorator = (style: Style) => HTMLAttributes | undefined
 
 export class TextEditorStore {
@@ -56,18 +56,35 @@ export class TextEditorStore {
     this.selection.focus.offset = newOffset
   }
 
+  concatBlocks(start: Block, end: Block) {
+    for (let style of end.styles) {
+      style.start += start.text.length
+      style.end += start.text.length
+      start.styles.push(style)
+    }
+    start.text = start.text + end.text
+  }
+
   removeNewLine() {
     const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
     if (blockIndex < 1) return
+
+    if (this.blocks[blockIndex-1].editable === false) {
+      this.blocks.splice(blockIndex-1, 1)
+    } else {
+      this.concatBlocks(this.blocks[blockIndex-1], this.blocks[blockIndex])
+      this.blocks.splice(blockIndex, 1)
+    }
+
     this.selection.anchor.blockId = this.blocks[blockIndex-1].id
     this.selection.focus.blockId = this.blocks[blockIndex-1].id
     this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
     this.selection.focus.offset = this.blocks[blockIndex-1].text.length
-    this.blocks.splice(blockIndex, 1)
   }
 
   onInput (_e: Event) {
     const ev = _e as InputEvent
+    if (ev.defaultPrevented) return
     ev.preventDefault()
 
     const collapsed = this.isCollapsed
@@ -79,7 +96,11 @@ export class TextEditorStore {
     if ((ev.inputType === 'deleteContentBackward' || ev.inputType === "deleteContentForward") && collapsed) {
       if (ev.inputType === 'deleteContentBackward') {
         if (this.selection.anchor.offset === 0) {
-          this.removeNewLine()
+          if (block.type) {
+            delete block.type
+          } else {
+            this.removeNewLine()
+          }
         } else {
           const offset = Math.max(0, this.selection.focus.offset - 1)
           block.text = block.text.slice(0, offset) + block.text.slice(this.selection.focus.offset)
@@ -90,7 +111,11 @@ export class TextEditorStore {
       if (ev.inputType === 'deleteContentForward') {
         const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
         if (this.selection.anchor.offset === this.blocks[blockIndex].text.length) {
-          this.blocks.splice(blockIndex+1, 1)
+          const nextBlock = this.blocks[blockIndex+1]
+          if (nextBlock) {
+            this.blocks.splice(blockIndex+1, 1)
+            this.concatBlocks(this.blocks[blockIndex-1], this.blocks[blockIndex])
+          }
         } else {
           block.text = block.text.slice(0, this.selection.focus.offset) + block.text.slice(this.selection.focus.offset+1)
           this.moveStyles(block, this.selection.focus.offset+1, 1)
@@ -136,6 +161,10 @@ export class TextEditorStore {
       Object.assign(this.selection, selection)
     }
     Object.assign(this.currentBlock!, blockData)
+
+    if (blockData.editable === false && this.currentBlock === this.blocks[this.blocks.length-1]) {
+      this.addNewLine()
+    }
   }
   
   get startAndEnd(): [ { blockId: string, offset: number }, { blockId: string, offset: number }, number, number ] {

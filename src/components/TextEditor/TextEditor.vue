@@ -2,7 +2,7 @@
   <div 
     ref="textEditorRef"
     contenteditable 
-    @input="store.onInput"
+    @beforeinput="store.onInput"
     @keydown="onKeyDown"
     @copy="onCopy"
     @paste="onPaste"
@@ -16,7 +16,7 @@
       :decorator="props.decorator"
       @postrender="onPostRender"
     />
-    <slot v-if="store.blocks.length === 1 && store.blocks[0].text === ''" name="placeholder"></slot>
+    <slot v-if="store.blocks.length === 1 && store.blocks[0].text === '' && !store.blocks[0].type" name="placeholder"></slot>
   </div>
 </template>
 
@@ -98,17 +98,6 @@ const onKeyDown = (e: KeyboardEvent) => {
     }
   }
 
-  if (e.code === "Backspace") {
-    if (store.isCollapsed && store.selection.anchor.offset === 0) {
-      e.preventDefault()
-      if (store.currentBlock && store.currentBlock.type) {
-        delete store.currentBlock.type
-      } else {
-        store.removeNewLine()
-      }
-    }
-  }
-
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
     if (e.code === "KeyB" || e.code === "KeyI" || e.code === "KeyU") {
       e.preventDefault()
@@ -119,22 +108,23 @@ const onKeyDown = (e: KeyboardEvent) => {
 let cachedSelection = {}
 useEventListener(document, "selectionchange", () => {
   const sel = window.getSelection()!
-  const anchor = findParent(sel.anchorNode!, el => el.hasAttribute("data-vw-block-id"))
+  const anchor = findParent(sel.anchorNode!, el => el.hasAttribute("data-vw-block-id") && el.parentElement === textEditorRef.value)
   if (anchor) {
     const offset = anchor === sel.anchorNode? 0: (calcOffsetToNode(anchor, sel.anchorNode!) + sel.anchorOffset)
     store.selection.anchor = { blockId: anchor.getAttribute("data-vw-block-id")!, offset }
   }
 
-  const focus = findParent(sel.focusNode!, el => el.hasAttribute("data-vw-block-id"))
+  const focus = findParent(sel.focusNode!, el => el.hasAttribute("data-vw-block-id") && el.parentElement === textEditorRef.value)
   if (focus) {
     const offset = anchor === sel.focusNode? 0: (calcOffsetToNode(focus, sel.focusNode!) + sel.focusOffset)
     store.selection.focus = { blockId: focus.getAttribute("data-vw-block-id")!, offset }
   }
-  if (store.isFocused.value !== !!focus || !!anchor) {
-    store.isFocused.value = !!focus || !!anchor
+  if (store.isFocused.value !== (!!focus || !!anchor)) {
+    store.isFocused.value = (!!focus || !!anchor)
   }
-  if (!anchor && !focus)
-  cachedSelection = JSON.parse(JSON.stringify(store.selection))
+  if (!anchor && !focus) {
+    cachedSelection = JSON.parse(JSON.stringify(store.selection))
+  }
 })
 
 let postRendered = false
@@ -164,6 +154,9 @@ const applySelection = () => {
     return
   }
   if (isEqual(store.selection, cachedSelection)) return
+  if (store.selection.anchor.blockId === store.selection.focus.blockId && store.currentBlock && store.currentBlock.editable === false) {
+    return
+  }
 
   const anchor = getNode(store.selection.anchor.blockId)
   const focus = getNode(store.selection.focus.blockId)

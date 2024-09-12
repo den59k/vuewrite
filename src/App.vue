@@ -27,6 +27,14 @@
       <template #li="{ content, props }">
         <li v-bind="props"><component :is="content" /></li>
       </template>
+      <template #code="{ props, block }">
+        <div class="text-editor__code-block" :contenteditable="false" v-bind="props" >
+          <TextEditor v-model="block.text" tabindex="2" single />
+        </div>
+      </template>
+      <template #image="{ props, block }">
+        <VImageUploader v-model="block.src" :contenteditable="false" v-bind="props"/>
+      </template>
       <template #placeholder>
         <div class="text-editor__placeholder" :contenteditable="false">
           Enter text...
@@ -40,6 +48,7 @@
     </VPopover>
     <div class="text-small">Focused: {{ textEditorRef?.isFocused }}</div>
     <div class="text-small">Text: {{ text }}</div>
+    <div class="text-small">Selection: {{ textEditorRef?.selection }}</div>
     <div class="text-small">CurrentWord: {{ currentWord }}</div>
   </div>
 </template>
@@ -55,6 +64,7 @@ import UnderlineIcon from './components/icons/UnderlineIcon.vue'
 import VSelect from './components/VSelect.vue';
 import VColorPicker from './components/VColorPicker.vue';
 import VPopover from './components/VPopover.vue';
+import VImageUploader from './components/VImageUploader.vue';
 
 const textEditorRef = shallowRef<TextEditorRef>()
 const text = ref([{ text: "" }])
@@ -138,6 +148,15 @@ const onKeyDown = (e: KeyboardEvent) => {
     textEditorRef.value.addNewLine()
     textEditorRef.value!.currentBlock.type = "li"
   }
+  if ((e.key === "ArrowUp" || e.key === "ArrowDown") && popoverOpen.value && visibleBlocks.value.length > 0) {
+    e.preventDefault()
+    const index = visibleBlocks.value.indexOf(activeItem.value!)
+    let newIndex = index + (e.key === "ArrowUp"? -1: 1)
+    if (newIndex < 0) newIndex = visibleBlocks.value.length-1
+    if (newIndex >= visibleBlocks.value.length) newIndex = 0
+    activeItem.value = visibleBlocks.value[newIndex]
+  }
+  console.log(e.key)
 }
 
 const decorator = (style: Style) => {
@@ -150,7 +169,7 @@ const decorator = (style: Style) => {
 }
 
 const currentWord = computed(() => {
-  if (!textEditorRef.value || !textEditorRef.value.isCollapsed) return null
+  if (!textEditorRef.value || !textEditorRef.value.isCollapsed || !textEditorRef.value.currentBlock) return null
   const text = textEditorRef.value.currentBlock!.text
   const end = textEditorRef.value.selection.anchor.offset
   let start = end
@@ -164,14 +183,33 @@ const currentWord = computed(() => {
 })
 
 const customBlocks = [
-  { id: "code", title: "Code", onClick() {
-    popoverOpen.value = false
-  } },
-  { id: "list", title: "List", onClick() {
-    popoverOpen.value = false
-    textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
-    textEditorRef.value!.insertBlock({ type: "li", text: "" })
-  } }
+  { 
+    id: "code", 
+    title: "Code", 
+    onClick() {
+      popoverOpen.value = false
+      textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
+      textEditorRef.value?.insertBlock({ type: "code", editable: false, text: "" })
+    } 
+  },
+  { 
+    id: "list", 
+    title: "List", 
+    onClick() {
+      popoverOpen.value = false
+      textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
+      textEditorRef.value!.insertBlock({ type: "li", text: "" })
+    }
+  },
+  { 
+    id: "image", 
+    title: "Image", 
+    onClick() {
+      popoverOpen.value = false
+      textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
+      textEditorRef.value!.insertBlock({ type: "image", editable: false })
+    }
+  },
 ]
 const activeItem = shallowRef<typeof customBlocks[number] | null>(null)
 const visibleBlocks = computed(() => {
@@ -201,7 +239,7 @@ watch(currentWord, (currentWord) => {
   } else {
     popoverOpen.value = false
   }
-})
+}, { flush: "post" })
 
 </script>
 
@@ -289,5 +327,17 @@ watch(currentWord, (currentWord) => {
     &.active
       background-color: rgba(255, 255, 255, 0.015)
       cursor: pointer
+
+.text-editor__code-block
+  background-color: #262626
+  border-radius: 6px
+  font-size: 14px
+  user-select: none
+
+  &>div
+    padding: 20px
+    outline: none
+    user-select: contain
+
 
 </style>
