@@ -182,8 +182,8 @@ const style = computed(() => {
 <style lang="sass">
 .v-popover
   position: fixed
-  background-color: var(--popover-color)
-  border: 1px solid var(--border-color)
+  background-color: #161618
+  border: 1px solid #252529
   border-radius: 12px
   min-width: 40px
   min-height: 40px

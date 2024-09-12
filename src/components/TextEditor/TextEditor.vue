@@ -99,8 +99,13 @@ const onKeyDown = (e: KeyboardEvent) => {
   }
 
   if (e.code === "Backspace") {
-    if (store.isCollapsed && store.currentBlock === store.blocks[0] && store.selection.anchor.offset === 0) {
+    if (store.isCollapsed && store.selection.anchor.offset === 0) {
       e.preventDefault()
+      if (store.currentBlock && store.currentBlock.type) {
+        delete store.currentBlock.type
+      } else {
+        store.removeNewLine()
+      }
     }
   }
 
@@ -144,6 +149,15 @@ const onPostRender = () => {
   })
 }
 
+const getNode = (blockId: string) => {
+  for (let item of textEditorRef.value!.children) {
+    if (item.getAttribute("data-vw-block-id") === blockId) {
+      return item as Node
+    }
+  } 
+  return null
+}
+
 const applySelection = () => {
   if (!store.isFocused.value) {
     cachedSelection = JSON.parse(JSON.stringify(store.selection))
@@ -151,17 +165,10 @@ const applySelection = () => {
   }
   if (isEqual(store.selection, cachedSelection)) return
 
+  const anchor = getNode(store.selection.anchor.blockId)
+  const focus = getNode(store.selection.focus.blockId)
   const nativeSelection = window.getSelection()!
-  let anchor: Node | null = null
-  let focus: Node | null = null
-  for (let item of textEditorRef.value!.children) {
-    if (item.getAttribute("data-vw-block-id") === store.selection.anchor.blockId) {
-      anchor = item
-    }
-    if (item.getAttribute("data-vw-block-id") === store.selection.focus.blockId) {
-      focus = item
-    }
-  }
+
   if (anchor && focus) {
     nativeSelection.setBaseAndExtent(
       ...calcNodeByOffset(anchor, store.selection.anchor.offset), 
@@ -202,6 +209,19 @@ const onPaste = (e: ClipboardEvent) => {
   store.insertText(text)
 }
 
+const getClientRects = (selection: TextEditorSelection) => {
+  const anchor = getNode(selection.anchor.blockId)
+  const focus = getNode(selection.focus.blockId)
+
+  if (anchor && focus) {
+    const range = new Range()
+    range.setStart(...calcNodeByOffset(anchor, selection.anchor.offset))
+    range.setEnd(...calcNodeByOffset(focus, selection.focus.offset))
+    return range.getClientRects()
+  }
+  return new DOMRectList()
+}
+
 defineExpose({
   currentStyles: store._currentStyles,
   currentBlock: store._currentBlock,
@@ -212,12 +232,18 @@ defineExpose({
   applyStyle: store.applyStyle.bind(store),
   removeStyle: store.removeStyle.bind(store),
   insertText: store.insertText.bind(store),
-  selectAll: store.selectAll.bind(store)
+  insertBlock: store.insertBlock.bind(store),
+  addNewLine: store.addNewLine.bind(store),
+  removeNewLine: store.removeNewLine.bind(store),
+  selectAll: store.selectAll.bind(store),
+  getClientRects
 })
 
 </script>
 
 <script lang="ts">
+
+export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
 
 export type TextEditorRef = Pick<TextEditorStore, 
   "currentStyles" | 
@@ -228,8 +254,11 @@ export type TextEditorRef = Pick<TextEditorStore,
   "applyStyle" |
   "removeStyle" |
   "insertText" |
-  "selectAll"
-> & { isFocused: boolean }
+  "insertBlock" |
+  "addNewLine" |
+  "removeNewLine" |
+  "selectAll" 
+> & { isFocused: boolean, getClientRects: (selection: TextEditorSelection) => DOMRectList }
 
 </script>
 

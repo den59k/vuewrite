@@ -56,6 +56,16 @@ export class TextEditorStore {
     this.selection.focus.offset = newOffset
   }
 
+  removeNewLine() {
+    const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
+    if (blockIndex < 1) return
+    this.selection.anchor.blockId = this.blocks[blockIndex-1].id
+    this.selection.focus.blockId = this.blocks[blockIndex-1].id
+    this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
+    this.selection.focus.offset = this.blocks[blockIndex-1].text.length
+    this.blocks.splice(blockIndex, 1)
+  }
+
   onInput (_e: Event) {
     const ev = _e as InputEvent
     ev.preventDefault()
@@ -67,16 +77,9 @@ export class TextEditorStore {
     if (!block) return
   
     if ((ev.inputType === 'deleteContentBackward' || ev.inputType === "deleteContentForward") && collapsed) {
-      const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
       if (ev.inputType === 'deleteContentBackward') {
         if (this.selection.anchor.offset === 0) {
-          if (blockIndex > 0) {
-            this.selection.anchor.blockId = this.blocks[blockIndex-1].id
-            this.selection.focus.blockId = this.blocks[blockIndex-1].id
-            this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
-            this.selection.focus.offset = this.blocks[blockIndex-1].text.length
-            this.blocks.splice(blockIndex, 1)
-          }
+          this.removeNewLine()
         } else {
           const offset = Math.max(0, this.selection.focus.offset - 1)
           block.text = block.text.slice(0, offset) + block.text.slice(this.selection.focus.offset)
@@ -85,6 +88,7 @@ export class TextEditorStore {
       }
   
       if (ev.inputType === 'deleteContentForward') {
+        const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
         if (this.selection.anchor.offset === this.blocks[blockIndex].text.length) {
           this.blocks.splice(blockIndex+1, 1)
         } else {
@@ -118,6 +122,20 @@ export class TextEditorStore {
     if (!block) return
     block.text = block.text.slice(0, this.selection.focus.offset) + data + block.text.slice(this.selection.focus.offset)
     this.moveOffset(clamp(this.selection.focus.offset + data.length, 0, block.text.length))
+  }
+
+  insertBlock(blockData: Partial<Block>) {
+    if (!this.currentBlock) return
+    this.deleteSelected()
+    if (this.currentBlock.text !== "") {
+      this.addNewLine()
+    }
+    if (this.currentBlock.text !== "") {
+      const selection = JSON.parse(JSON.stringify(this.selection))
+      this.addNewLine()
+      Object.assign(this.selection, selection)
+    }
+    Object.assign(this.currentBlock!, blockData)
   }
   
   get startAndEnd(): [ { blockId: string, offset: number }, { blockId: string, offset: number }, number, number ] {
