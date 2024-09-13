@@ -25,7 +25,7 @@ You can watch the demo [here](https://vuewrite.easix.ru)
 import { TextEditor, TextEditorRef } from 'vuewrite'
 
 const textEditorRef = shallowRef<TextEditorRef>()
-const modelValue = ref("")
+const modelValue = shallowRef("")
 
 const onKeyDown = (e: KeyboardEvent) => {
   if (!textEditorRef.value) return

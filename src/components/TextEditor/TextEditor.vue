@@ -23,7 +23,7 @@
 
 <script lang="ts" setup>
 import { useEventListener } from '@vueuse/core';
-import { nextTick, onMounted, ref, useSlots, watch } from 'vue';
+import { isProxy, nextTick, onMounted, ref, toRaw, useSlots, watch } from 'vue';
 import { calcNodeByOffset, calcOffsetToNode, findParent } from '../../utils/richEditorUtils';
 import { Decorator, Style, TextEditorSelection, TextEditorStore, uid } from './TextEditorStore';
 import { isEqual } from 'vuesix';
@@ -48,6 +48,7 @@ const store = new TextEditorStore()
 
 let modelValue: string | { text: string }[] = ""
 watch(() => props.modelValue, (newValue) => {
+  if (isProxy(newValue) && toRaw(newValue) === modelValue) return
   if (newValue === undefined || newValue === null || newValue === modelValue) return
   if (!Array.isArray(newValue)) {
     store.blocks[0].text = newValue
