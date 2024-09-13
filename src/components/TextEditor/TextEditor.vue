@@ -14,6 +14,7 @@
       :block="block" 
       :slots="slots"
       :decorator="props.decorator"
+      :parser="props.parser"
       @postrender="onPostRender"
     />
     <slot v-if="store.blocks.length === 1 && store.blocks[0].text === '' && !store.blocks[0].type" name="placeholder"></slot>
@@ -32,9 +33,11 @@ const props = defineProps<{
   decorator?: Decorator, 
   single?: boolean, 
   modelValue?: { text: string, styles?: Style[], type?: string }[] | string, 
+  parser?: TextParser,
   styles?: Style[],
   autofocus?: boolean,
-  autoselect?: boolean
+  autoselect?: boolean,
+  preventMultiline?: boolean
 }>()
 const emit = defineEmits([ "keydown", "update:modelValue", "update:styles" ])
 const slots = useSlots()
@@ -91,7 +94,7 @@ const onKeyDown = (e: KeyboardEvent) => {
   if (e.defaultPrevented) return
   if (e.code === "Enter") {
     e.preventDefault()
-    if (e.shiftKey || props.single) {
+    if (!props.preventMultiline && (e.shiftKey || props.single)) {
       store.insertText("\n")
     } else {
       store.addNewLine()
@@ -110,13 +113,15 @@ useEventListener(document, "selectionchange", () => {
   const sel = window.getSelection()!
   const anchor = findParent(sel.anchorNode!, el => el.hasAttribute("data-vw-block-id") && el.parentElement === textEditorRef.value)
   if (anchor) {
-    const offset = anchor === sel.anchorNode? 0: (calcOffsetToNode(anchor, sel.anchorNode!) + sel.anchorOffset)
+    const isNonEditable = anchor.getAttribute("contenteditable") === "false"
+    const offset = (isNonEditable || anchor === sel.focusNode)? 0: (calcOffsetToNode(anchor, sel.anchorNode!) + sel.anchorOffset)
     store.selection.anchor = { blockId: anchor.getAttribute("data-vw-block-id")!, offset }
   }
 
   const focus = findParent(sel.focusNode!, el => el.hasAttribute("data-vw-block-id") && el.parentElement === textEditorRef.value)
   if (focus) {
-    const offset = anchor === sel.focusNode? 0: (calcOffsetToNode(focus, sel.focusNode!) + sel.focusOffset)
+    const isNonEditable = focus.getAttribute("contenteditable") === "false"
+    const offset = (isNonEditable || focus === sel.focusNode)? 0: (calcOffsetToNode(focus, sel.focusNode!) + sel.focusOffset)
     store.selection.focus = { blockId: focus.getAttribute("data-vw-block-id")!, offset }
   }
   if (store.isFocused.value !== (!!focus || !!anchor)) {
@@ -237,6 +242,8 @@ defineExpose({
 <script lang="ts">
 
 export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
+
+export type TextParser = (text: string) => Style[]
 
 export type TextEditorRef = Pick<TextEditorStore, 
   "currentStyles" | 

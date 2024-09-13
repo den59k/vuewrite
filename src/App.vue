@@ -28,9 +28,7 @@
         <li v-bind="props"><component :is="content" /></li>
       </template>
       <template #code="{ props, block }">
-        <div class="text-editor__code-block" :contenteditable="false" v-bind="props" >
-          <TextEditor v-model="block.text" tabindex="2" single />
-        </div>
+        <CodeEditor v-model="block.text"  v-bind="props" />
       </template>
       <template #image="{ props, block }">
         <VImageUploader v-model="block.src" :contenteditable="false" v-bind="props"/>
@@ -65,6 +63,7 @@ import VSelect from './components/VSelect.vue';
 import VColorPicker from './components/VColorPicker.vue';
 import VPopover from './components/VPopover.vue';
 import VImageUploader from './components/VImageUploader.vue';
+import CodeEditor from './components/CodeEditor.vue';
 
 const textEditorRef = shallowRef<TextEditorRef>()
 const text = ref([{ text: "" }])
@@ -156,7 +155,6 @@ const onKeyDown = (e: KeyboardEvent) => {
     if (newIndex >= visibleBlocks.value.length) newIndex = 0
     activeItem.value = visibleBlocks.value[newIndex]
   }
-  console.log(e.key)
 }
 
 const decorator = (style: Style) => {
@@ -327,17 +325,6 @@ watch(currentWord, (currentWord) => {
     &.active
       background-color: rgba(255, 255, 255, 0.015)
       cursor: pointer
-
-.text-editor__code-block
-  background-color: #262626
-  border-radius: 6px
-  font-size: 14px
-  user-select: none
-
-  &>div
-    padding: 20px
-    outline: none
-    user-select: contain
 
 
 </style>

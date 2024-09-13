@@ -10,8 +10,9 @@
 <script lang="ts" setup>
 import { HTMLAttributes, computed, getCurrentInstance, h, nextTick } from 'vue';
 import { Style, Block, Decorator } from './TextEditorStore';
+import { TextParser } from './TextEditor.vue';
 
-const props = defineProps<{ block: Block, slots: Record<string, any>, decorator?: Decorator }>()
+const props = defineProps<{ block: Block, slots: Record<string, any>, decorator?: Decorator, parser?: TextParser }>()
 const emit = defineEmits([ "postrender" ])
 
 const slot = computed(() => {
@@ -105,6 +106,12 @@ const content = () => {
   for (let style of block.styles) {
     markers.push([style.start, style])
     markers.push([style.end, style])
+  }
+  if (props.parser) {
+    for (let style of props.parser(text)) {
+      markers.push([ style.start, style ])
+      markers.push([ style.end, style ])
+    }
   }
   markers.sort((a, b) => a[0] - b[0])
   
