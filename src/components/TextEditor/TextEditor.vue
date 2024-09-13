@@ -127,7 +127,7 @@ useEventListener(document, "selectionchange", () => {
   if (store.isFocused.value !== (!!focus || !!anchor)) {
     store.isFocused.value = (!!focus || !!anchor)
   }
-  if (!anchor && !focus) {
+  if (anchor && focus) {
     cachedSelection = JSON.parse(JSON.stringify(store.selection))
   }
 })

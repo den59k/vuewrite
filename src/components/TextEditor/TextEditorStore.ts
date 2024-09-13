@@ -145,8 +145,9 @@ export class TextEditorStore {
   insertText(data: string) {
     const block = this.currentBlock
     if (!block) return
-    block.text = block.text.slice(0, this.selection.focus.offset) + data + block.text.slice(this.selection.focus.offset)
-    this.moveOffset(clamp(this.selection.focus.offset + data.length, 0, block.text.length))
+    const text = data.replace(/\r/g, "")
+    block.text = block.text.slice(0, this.selection.focus.offset) + text + block.text.slice(this.selection.focus.offset)
+    this.moveOffset(clamp(this.selection.focus.offset + text.length, 0, block.text.length))
   }
 
   insertBlock(blockData: Partial<Block>) {
