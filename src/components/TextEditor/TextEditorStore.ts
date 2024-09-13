@@ -1,15 +1,18 @@
 import { HTMLAttributes, computed, reactive, ref } from "vue"
 import { clamp, isEqual } from "vuesix"
+import { TextEditorHistory } from "./TextEditorHistory"
 
 export type Style = { start: number, end: number, style: string, meta?: any }
 export type Block = { id: string, text: string, type?: string, styles: Style[], editable?: boolean }
 export type Decorator = (style: Style) => HTMLAttributes | undefined
+export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
 
 export class TextEditorStore {
-  
+
+  history = new TextEditorHistory(this)
   blocks = reactive<Block[]>([{ id: uid(), text: "", styles: [] }])
   
-  selection = reactive({ 
+  selection = reactive<TextEditorSelection>({ 
     anchor: { blockId: this.blocks[0].id, offset: 0 }, 
     focus: { blockId: this.blocks[0].id, offset: 0 } 
   })
@@ -80,6 +83,8 @@ export class TextEditorStore {
     this.selection.focus.blockId = this.blocks[blockIndex-1].id
     this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
     this.selection.focus.offset = this.blocks[blockIndex-1].text.length
+    
+    this.history.push("setText")
   }
 
   onInput (_e: Event) {
@@ -125,6 +130,7 @@ export class TextEditorStore {
     
     if (ev.inputType === 'insertText') {
       this.insertText(ev.data!)
+      this.history.push("insertText")
     }
   }
 
@@ -140,6 +146,8 @@ export class TextEditorStore {
     this.blocks.splice(index+1, 0, block)
     this.selection.anchor = { blockId: block.id, offset: 0 }
     this.selection.focus = { blockId: block.id, offset: 0 }
+
+    this.history.push("setText")
   }
 
   insertText(data: string) {
@@ -166,6 +174,8 @@ export class TextEditorStore {
     if (blockData.editable === false && this.currentBlock === this.blocks[this.blocks.length-1]) {
       this.addNewLine()
     }
+
+    this.history.push("setText")
   }
   
   get startAndEnd(): [ { blockId: string, offset: number }, { blockId: string, offset: number }, number, number ] {

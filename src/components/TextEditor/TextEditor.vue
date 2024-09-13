@@ -25,9 +25,10 @@
 import { useEventListener } from '@vueuse/core';
 import { nextTick, onMounted, ref, useSlots, watch } from 'vue';
 import { calcNodeByOffset, calcOffsetToNode, findParent } from '../../utils/richEditorUtils';
-import { Decorator, Style, TextEditorStore, uid } from './TextEditorStore';
+import { Decorator, Style, TextEditorSelection, TextEditorStore, uid } from './TextEditorStore';
 import { isEqual } from 'vuesix';
 import TextEditorBlock from './TextEditorBlock.vue';
+import { TextEditorHistory } from './TextEditorHistory';
 
 const props = defineProps<{ 
   decorator?: Decorator, 
@@ -105,6 +106,15 @@ const onKeyDown = (e: KeyboardEvent) => {
     if (e.code === "KeyB" || e.code === "KeyI" || e.code === "KeyU") {
       e.preventDefault()
     }
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.code === "KeyZ" && !e.shiftKey) {
+    e.preventDefault()
+    store.history.undo()
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.code === "KeyY" || (e.shiftKey && e.code === "KeyZ"))) {
+    e.preventDefault()
+    store.history.redo()
   }
 }
 
@@ -187,17 +197,21 @@ onMounted(() => {
     textEditorRef.value?.focus()
     store.selectAll()
   }
+
+  store.history.push("setText")
 })
 
 const onCopy = (e: ClipboardEvent) => {
   e.preventDefault()
   navigator.clipboard.writeText(store.selectedText)
+  store.history.push("setText")
 }
 
 const onCut = (e: ClipboardEvent) => {
   e.preventDefault()
   navigator.clipboard.writeText(store.selectedText)
   store.deleteSelected()
+  store.history.push("setText")
 }
 
 const onPaste = (e: ClipboardEvent) => {
@@ -205,6 +219,7 @@ const onPaste = (e: ClipboardEvent) => {
   const text = e.clipboardData?.getData('Text')
   if (!text) return
   store.insertText(text)
+  store.history.push("setText")
 }
 
 const getClientRects = (selection: TextEditorSelection) => {
@@ -234,14 +249,13 @@ defineExpose({
   addNewLine: store.addNewLine.bind(store),
   removeNewLine: store.removeNewLine.bind(store),
   selectAll: store.selectAll.bind(store),
+  pushHistory: store.history.push.bind(store.history),
   getClientRects
 })
 
 </script>
 
 <script lang="ts">
-
-export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
 
 export type TextParser = (text: string) => Style[]
 
@@ -258,7 +272,11 @@ export type TextEditorRef = Pick<TextEditorStore,
   "addNewLine" |
   "removeNewLine" |
   "selectAll" 
-> & { isFocused: boolean, getClientRects: (selection: TextEditorSelection) => DOMRectList }
+> & { 
+  isFocused: boolean, 
+  getClientRects: (selection: TextEditorSelection) => DOMRectList,
+  pushHistory: TextEditorHistory["push"]
+}
 
 </script>
 

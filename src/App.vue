@@ -142,10 +142,11 @@ const onKeyDown = (e: KeyboardEvent) => {
     activeItem.value.onClick()
     return
   }
-  if (e.key === "Enter" && textEditorRef.value?.currentBlock?.type === "li") {
+  if (e.key === "Enter" && !e.shiftKey && textEditorRef.value?.currentBlock?.type === "li") {
     e.preventDefault()
     textEditorRef.value.addNewLine()
     textEditorRef.value!.currentBlock.type = "li"
+    textEditorRef.value.pushHistory("setText")
   }
   if ((e.key === "ArrowUp" || e.key === "ArrowDown") && popoverOpen.value && visibleBlocks.value.length > 0) {
     e.preventDefault()
