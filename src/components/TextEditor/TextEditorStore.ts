@@ -72,6 +72,11 @@ export class TextEditorStore {
     const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
     if (blockIndex < 1) return
 
+    this.selection.anchor.blockId = this.blocks[blockIndex-1].id
+    this.selection.focus.blockId = this.blocks[blockIndex-1].id
+    this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
+    this.selection.focus.offset = this.blocks[blockIndex-1].text.length
+
     if (this.blocks[blockIndex-1].editable === false) {
       this.blocks.splice(blockIndex-1, 1)
     } else {
@@ -79,11 +84,6 @@ export class TextEditorStore {
       this.blocks.splice(blockIndex, 1)
     }
 
-    this.selection.anchor.blockId = this.blocks[blockIndex-1].id
-    this.selection.focus.blockId = this.blocks[blockIndex-1].id
-    this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
-    this.selection.focus.offset = this.blocks[blockIndex-1].text.length
-    
     this.history.push("setText")
   }
 

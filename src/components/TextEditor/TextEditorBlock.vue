@@ -103,9 +103,11 @@ const content = () => {
     text = text + "\n"
   }
   const markers: [ number, Style ][] = []
-  for (let style of block.styles) {
-    markers.push([style.start, style])
-    markers.push([style.end, style])
+  if (block.styles) {
+    for (let style of block.styles) {
+      markers.push([style.start, style])
+      markers.push([style.end, style])
+    }
   }
   if (props.parser) {
     for (let style of props.parser(text)) {
