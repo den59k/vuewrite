@@ -156,6 +156,26 @@ const onKeyDown = (e: KeyboardEvent) => {
     if (newIndex >= visibleBlocks.value.length) newIndex = 0
     activeItem.value = visibleBlocks.value[newIndex]
   }
+
+  if (e.code === "Space" && textEditorRef.value?.currentBlock) {
+    if (textEditorRef.value.currentBlock.text === "#") {
+      textEditorRef.value.currentBlock.type = "h1"
+      textEditorRef.value.currentBlock.text = ""
+      e.preventDefault()
+    } else if (textEditorRef.value.currentBlock.text === "##") {
+      textEditorRef.value.currentBlock.type = "h2"
+      textEditorRef.value.currentBlock.text = ""
+      e.preventDefault()
+    } else if (textEditorRef.value.currentBlock.text === "###") {
+      textEditorRef.value.currentBlock.type = "h3"
+      textEditorRef.value.currentBlock.text = ""
+      e.preventDefault()
+    } else if (textEditorRef.value.currentBlock.text === "*") {
+      textEditorRef.value.currentBlock.type = "li"
+      textEditorRef.value.currentBlock.text = ""
+      e.preventDefault()
+    }
+  }
 }
 
 const decorator = (style: Style) => {

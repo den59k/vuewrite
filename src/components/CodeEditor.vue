@@ -1,6 +1,6 @@
 <template>
   <div class="code-editor" :contenteditable="false">
-    <TextEditor v-model="model" tabindex="2" :parser="parser" :decorator="decorator" preventMultiline/>
+    <TextEditor v-model="model" tabindex="2" :parser="parser" :decorator="decorator" preventMultiline spellcheck="false"/>
   </div>
 </template>
 

@@ -16,7 +16,7 @@ const props = defineProps<{ block: Block, slots: Record<string, any>, decorator?
 const emit = defineEmits([ "postrender" ])
 
 const slot = computed(() => {
-  if (!props.block.type) return null
+  if (!props.block.type) return props.slots['default'] ?? null
   return props.slots[props.block.type] ?? null
 })
 

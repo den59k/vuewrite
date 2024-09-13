@@ -60,7 +60,7 @@ watch(() => props.modelValue, (newValue) => {
     for (let i = 0; i < newValue.length; i++) {
       store.blocks[i].text = newValue[i].text
       store.blocks[i].type = newValue[i].type
-      store.blocks[i].text = newValue[i].text
+      store.blocks[i].styles = newValue[i].styles ?? []
     }
   }
 }, { immediate: true })

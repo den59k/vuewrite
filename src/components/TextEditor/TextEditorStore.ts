@@ -135,6 +135,14 @@ export class TextEditorStore {
   }
 
   addNewLine() {
+    
+    if (this.isCollapsed && this.selection.anchor.offset === 0) {
+      const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
+      const block = { id: uid(), text: "", styles: [] }
+      this.blocks.splice(index, 0, block)
+      return
+    }
+
     this.deleteSelected()
 
     if (!this.currentBlock) return
