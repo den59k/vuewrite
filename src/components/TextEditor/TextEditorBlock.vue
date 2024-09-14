@@ -12,7 +12,13 @@ import { HTMLAttributes, computed, getCurrentInstance, h, nextTick } from 'vue';
 import { Style, Block, Decorator } from './TextEditorStore';
 import { TextParser } from './TextEditor.vue';
 
-const props = defineProps<{ block: Block, slots: Record<string, any>, decorator?: Decorator, parser?: TextParser }>()
+const props = defineProps<{ 
+  block: Block, 
+  slots: Record<string, any>, 
+  static?: boolean,
+  decorator?: Decorator, 
+  parser?: TextParser
+}>()
 const emit = defineEmits([ "postrender" ])
 
 const slot = computed(() => {
@@ -62,6 +68,7 @@ const getRef = () => {
 const cacheNodes: Node[] = []
 let cacheEl: Node | null = null
 const cleanTree = (count: number) => {
+  if (props.static === true) return
   const el = getRef()
   if (!el) return
   

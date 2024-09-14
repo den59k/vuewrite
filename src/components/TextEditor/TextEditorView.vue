@@ -7,6 +7,7 @@
       :slots="slots"
       :decorator="props.decorator"
       :parser="props.parser"
+      static
     />
   </div>
 </template>
@@ -22,6 +23,7 @@ const props = defineProps<{
   decorator?: Decorator, 
   parser?: TextParser,
   styles?: Style[],
+  preventMultiline?: boolean
 }>()
 
 const slots = useSlots()
