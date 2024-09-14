@@ -27,11 +27,12 @@ const blockProps = {
 const renderBlockPart = (text: string, styles: Style[]) => {
   if (!props.decorator) return text
 
+  let elementTag = "span"
   const attrs: HTMLAttributes = {}
   for (let style of styles) {
     const partProps = props.decorator(style)
     if (!partProps) continue
-    const { class: _class, style: _style, ...otherProps } = partProps
+    const { class: _class, style: _style, tag, ...otherProps } = partProps
     Object.assign(attrs, otherProps)
     if (_class) {
       attrs.class = attrs.class? attrs.class + " " + _class: _class
@@ -39,9 +40,12 @@ const renderBlockPart = (text: string, styles: Style[]) => {
     if (_style) {
       attrs.style = attrs.style? attrs.style + " " + _style: _style
     }
+    if (tag) {
+      elementTag = tag
+    }
   }
   if (Object.keys(attrs).length === 0) return text
-  return h("span", attrs, text)
+  return h(elementTag, attrs, text)
 }
 
 const instance = getCurrentInstance()
