@@ -75,7 +75,7 @@ export default defineComponent({
 
     const content = () => {
       const block = props.block
-      if (block.editable === false) return null
+      if (block.editable === false) return []
       if (block.text.length === 0) {
         cleanTree(1)
         return [h("br")]
@@ -152,7 +152,7 @@ export default defineComponent({
 
     return () => {
       if (slot.value) return h(slot.value, { content, props: blockProps, block: props.block })
-      return h('div', blockProps, [ content() ])
+      return h('div', blockProps, content())
     }
   }
 })
