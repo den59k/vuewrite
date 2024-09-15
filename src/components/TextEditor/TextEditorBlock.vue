@@ -151,7 +151,11 @@ export default defineComponent({
     }
 
     return () => {
-      if (slot.value) return slot.value({ content, props: blockProps, block: props.block })
+      if (slot.value) {
+        const component = slot.value({ content, props: blockProps, block: props.block })
+        if (Array.isArray(component) && component.length === 1) return component[0]
+        return component
+      } 
       return h('div', blockProps, content())
     }
   }
