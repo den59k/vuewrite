@@ -39,6 +39,31 @@
         </div>
       </template>
     </TextEditor>
+    <TextEditorView :model-value="text" class="text-editor">
+      <template #h1="{ content, props }">
+        <h1 v-bind="props"><component :is="content" /></h1>
+      </template>
+      <template #h2="{ content, props }">
+        <h2 v-bind="props"><component :is="content" /></h2>
+      </template>
+      <template #h3="{ content, props }">
+        <h3 v-bind="props"><component :is="content" /></h3>
+      </template>
+      <template #li="{ content, props }">
+        <li v-bind="props"><component :is="content" /></li>
+      </template>
+      <template #code="{ props, block }">
+        <CodeEditor v-model="block.text"  v-bind="props" />
+      </template>
+      <template #image="{ props, block }">
+        <VImageUploader v-model="block.src" :contenteditable="false" v-bind="props"/>
+      </template>
+      <template #placeholder>
+        <div class="text-editor__placeholder" :contenteditable="false">
+          Enter text...
+        </div>
+      </template>
+    </TextEditorView>
     <VPopover :anchor-position="popoverPosition" placement="bottom-start" :open="popoverOpen" class="custom-blocks-popover">
       <button v-for="item in visibleBlocks" :class="{ active: activeItem === item }" @mouseenter="activeItem = item" @click="item.onClick">
         {{ item.title }}
@@ -64,6 +89,7 @@ import VColorPicker from './components/VColorPicker.vue';
 import VPopover from './components/VPopover.vue';
 import VImageUploader from './components/VImageUploader.vue';
 import CodeEditor from './components/CodeEditor.vue';
+import TextEditorView from './components/TextEditor/TextEditorView.vue';
 
 const textEditorRef = shallowRef<TextEditorRef>()
 const text = ref([{ text: "" }])
