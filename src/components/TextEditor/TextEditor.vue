@@ -203,12 +203,14 @@ onMounted(() => {
 })
 
 const onCopy = (e: ClipboardEvent) => {
+  if (e.defaultPrevented) return
   e.preventDefault()
   navigator.clipboard.writeText(store.selectedText)
   store.history.push("setText")
 }
 
 const onCut = (e: ClipboardEvent) => {
+  if (e.defaultPrevented) return
   e.preventDefault()
   navigator.clipboard.writeText(store.selectedText)
   store.deleteSelected()
@@ -216,10 +218,20 @@ const onCut = (e: ClipboardEvent) => {
 }
 
 const onPaste = (e: ClipboardEvent) => {
+  if (e.defaultPrevented) return
   e.preventDefault()
   const text = e.clipboardData?.getData('Text')
   if (!text) return
-  store.insertText(text)
+  if (props.preventMultiline) {
+    const blocks = text.split("\n")
+    store.insertText(blocks[0])
+    for (let i = 1; i < blocks.length; i++) {
+      store.addNewLine()
+      store.insertText(blocks[i])
+    }
+  } else {
+    store.insertText(text)
+  }
   store.history.push("setText")
 }
 

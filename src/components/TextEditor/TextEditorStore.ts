@@ -158,6 +158,13 @@ export class TextEditorStore {
     this.history.push("setText")
   }
 
+  addNewLineAfter() {
+    const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
+    const block = { id: uid(), text: "", styles: [] }
+    this.blocks.splice(index+1, 0, block)
+    return block
+  }
+
   insertText(data: string) {
     const block = this.currentBlock
     if (!block) return
@@ -180,7 +187,11 @@ export class TextEditorStore {
     Object.assign(this.currentBlock!, blockData)
 
     if (blockData.editable === false && this.currentBlock === this.blocks[this.blocks.length-1]) {
-      this.addNewLine()
+      const newLine = this.addNewLineAfter()
+      this.selection.focus.blockId = newLine.id
+      this.selection.focus.offset = 0
+      this.selection.anchor.blockId = newLine.id
+      this.selection.anchor.offset = 0
     }
 
     this.history.push("setText")
