@@ -29,6 +29,7 @@ import { Decorator, Style, TextEditorSelection, TextEditorStore, uid } from './T
 import { isEqual } from 'vuesix';
 import TextEditorBlock from './TextEditorBlock.vue';
 import { TextEditorHistory } from './TextEditorHistory';
+import { createClipboardEvents } from './clipboardEvents';
 
 const props = defineProps<{ 
   decorator?: Decorator, 
@@ -202,38 +203,7 @@ onMounted(() => {
   store.history.push("setText")
 })
 
-const onCopy = (e: ClipboardEvent) => {
-  if (e.defaultPrevented) return
-  e.preventDefault()
-  navigator.clipboard.writeText(store.selectedText)
-  store.history.push("setText")
-}
-
-const onCut = (e: ClipboardEvent) => {
-  if (e.defaultPrevented) return
-  e.preventDefault()
-  navigator.clipboard.writeText(store.selectedText)
-  store.deleteSelected()
-  store.history.push("setText")
-}
-
-const onPaste = (e: ClipboardEvent) => {
-  if (e.defaultPrevented) return
-  e.preventDefault()
-  const text = e.clipboardData?.getData('Text')
-  if (!text) return
-  if (props.preventMultiline) {
-    const blocks = text.split("\n")
-    store.insertText(blocks[0])
-    for (let i = 1; i < blocks.length; i++) {
-      store.addNewLine()
-      store.insertText(blocks[i])
-    }
-  } else {
-    store.insertText(text)
-  }
-  store.history.push("setText")
-}
+const { onCut, onCopy, onPaste } = createClipboardEvents(store, props)
 
 const getClientRects = (selection: TextEditorSelection) => {
   const anchor = getNode(selection.anchor.blockId)
