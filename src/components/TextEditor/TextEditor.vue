@@ -85,6 +85,7 @@ watch(() => store.blocks, () => {
     emit("update:styles", styles)
     emit("update:modelValue", modelValue)
   } else {
+    modelValue = store.blocks
     emit("update:modelValue", store.blocks)
   }
 }, { deep: true })
