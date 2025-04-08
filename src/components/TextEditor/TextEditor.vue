@@ -60,13 +60,11 @@ watch(() => props.modelValue, (newValue) => {
     return
   } else {
     for (let i = store.blocks.length; i < newValue.length; i++) {
-      store.blocks.push({ id: uid(), text: "", styles: [] })
+      store.blocks.push({ id: uid(), text: "" })
     }
     store.blocks.length = newValue.length
     for (let i = 0; i < newValue.length; i++) {
-      store.blocks[i].text = newValue[i].text
-      store.blocks[i].type = newValue[i].type
-      store.blocks[i].styles = newValue[i].styles
+      store.blocks[i] = { ...newValue[i], id: uid() }
     }
   }
 }, { immediate: true })
