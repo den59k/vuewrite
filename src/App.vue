@@ -10,23 +10,12 @@
     <TextEditor 
       ref="textEditorRef"
       v-model="text"
+      :modifier="modifier"
       :decorator="decorator" 
       class="text-editor"
       autofocus
       @keydown="onKeyDown"
     >
-      <template #h1="{ content, props }">
-        <h1 v-bind="props"><component :is="content" /></h1>
-      </template>
-      <template #h2="{ content, props }">
-        <h2 v-bind="props"><component :is="content" /></h2>
-      </template>
-      <template #h3="{ content, props }">
-        <h3 v-bind="props"><component :is="content" /></h3>
-      </template>
-      <template #li="{ content, props }">
-        <li v-bind="props"><component :is="content" /></li>
-      </template>
       <template #code="{ props, block }">
         <CodeEditor v-model="block.text"  v-bind="props" />
       </template>
@@ -39,19 +28,7 @@
         </div>
       </template>
     </TextEditor>
-    <TextEditorView :model-value="text" class="text-editor">
-      <template #h1="{ content, props }">
-        <h1 v-bind="props"><component :is="content" /></h1>
-      </template>
-      <template #h2="{ content, props }">
-        <h2 v-bind="props"><component :is="content" /></h2>
-      </template>
-      <template #h3="{ content, props }">
-        <h3 v-bind="props"><component :is="content" /></h3>
-      </template>
-      <template #li="{ content, props }">
-        <li v-bind="props"><component :is="content" /></li>
-      </template>
+    <TextEditorView :model-value="text" class="text-editor" :modifier="modifier" :decorator="decorator" >
       <template #code="{ props, block }">
         <CodeEditor v-model="block.text"  v-bind="props" />
       </template>
@@ -90,6 +67,7 @@ import VPopover from './components/VPopover.vue';
 import VImageUploader from './components/VImageUploader.vue';
 import CodeEditor from './components/CodeEditor.vue';
 import TextEditorView from './components/TextEditor/TextEditorView.vue';
+import { Block } from 'vuewrite';
 
 const textEditorRef = shallowRef<TextEditorRef>()
 const text = ref([{ text: "" }])
@@ -148,6 +126,7 @@ const blockType = computed({
     } else {
       textEditorRef.value.currentBlock.type = type ?? undefined
     }
+    textEditorRef.value.pushHistory("changeBlockType")
   }
 })
 
@@ -204,12 +183,22 @@ const onKeyDown = (e: KeyboardEvent) => {
   }
 }
 
+const modifier = (block: Block) => {
+  if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3' || block.type === 'li') return { tag: block.type }
+}
+
 const decorator = (style: Style) => {
   if (style.style === 'color') {
     return { style: `color: ${style.meta!.color};` }
   }
-  if (style.style === 'bold' || style.style === "underline" || style.style === "italic") {
-    return { class: style.style }
+  if (style.style === 'bold') {
+    return { tag: 'b' }
+  }
+  if (style.style === 'underline') {
+    return { tag: 'u' }
+  }
+  if (style.style === 'italic') {
+    return { tag: 'i' }
   }
 }
 

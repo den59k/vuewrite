@@ -5,6 +5,7 @@ import { TextEditorHistory } from "./TextEditorHistory"
 export type Style = { start: number, end: number, style: string, meta?: any }
 export type Block = { id: string, text: string, type?: string, styles: Style[], editable?: boolean }
 export type Decorator = (style: Style) => HTMLAttributes & { tag?: string } | undefined
+export type Modifier = (block: Block) => HTMLAttributes & { tag?: string } | undefined
 export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
 
 export class TextEditorStore {
@@ -83,8 +84,6 @@ export class TextEditorStore {
       this.concatBlocks(this.blocks[blockIndex-1], this.blocks[blockIndex])
       this.blocks.splice(blockIndex, 1)
     }
-
-    this.history.push("setText")
   }
 
   onInput (_e: Event) {
@@ -111,6 +110,7 @@ export class TextEditorStore {
           block.text = block.text.slice(0, offset) + block.text.slice(this.selection.focus.offset)
           this.moveOffset(offset)
         }
+        this.history.push("deleteContentBackward")
       }
   
       if (ev.inputType === 'deleteContentForward') {
@@ -119,12 +119,13 @@ export class TextEditorStore {
           const nextBlock = this.blocks[blockIndex+1]
           if (nextBlock) {
             this.blocks.splice(blockIndex+1, 1)
-            this.concatBlocks(this.blocks[blockIndex-1], this.blocks[blockIndex])
+            this.concatBlocks(this.blocks[blockIndex], nextBlock)
           }
         } else {
           block.text = block.text.slice(0, this.selection.focus.offset) + block.text.slice(this.selection.focus.offset+1)
           this.moveStyles(block, this.selection.focus.offset+1, 1)
         }
+        this.history.push("deleteContentForward")
       }
     }
     
@@ -135,11 +136,12 @@ export class TextEditorStore {
   }
 
   addNewLine() {
-    
     if (this.isCollapsed && this.selection.anchor.offset === 0) {
       const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
       const block = { id: uid(), text: "", styles: [] }
       this.blocks.splice(index, 0, block)
+      
+      this.history.push("addNewLine")
       return
     }
 
@@ -155,7 +157,7 @@ export class TextEditorStore {
     this.selection.anchor = { blockId: block.id, offset: 0 }
     this.selection.focus = { blockId: block.id, offset: 0 }
 
-    this.history.push("setText")
+    this.history.push("addNewLine")
   }
 
   addNewLineAfter() {
@@ -261,6 +263,7 @@ export class TextEditorStore {
   }
 
   applyStyle(_style: string, meta?: any) {
+    if (this.isCollapsed) return
     const [ start, end, startIndex, endIndex ] = this.startAndEnd
     for (let i = startIndex; i <= endIndex; i++) {
       const block = this.blocks[i]
@@ -294,6 +297,7 @@ export class TextEditorStore {
         block.styles.sort((a, b) => a.start - b.start)
       }
     }
+    this.history.push("applyStyle")
   }
 
   removeStyleAt(block: Block, _start: number, _end: number, _style?: string) {
@@ -325,6 +329,7 @@ export class TextEditorStore {
       const _end = i === endIndex? end.offset: block.text.length
       this.removeStyleAt(block, _start, _end, _style)
     }
+    this.history.push("applyStyle")
   }
   
   removeAllStyles() {

@@ -13,6 +13,7 @@
       :key="block.id" 
       :block="block" 
       :slots="slots"
+      :modifier="props.modifier"
       :decorator="props.decorator"
       :parser="props.parser"
       @postrender="onPostRender"
@@ -25,14 +26,16 @@
 import { useEventListener } from '@vueuse/core';
 import { isProxy, nextTick, onMounted, ref, toRaw, useSlots, watch } from 'vue';
 import { calcNodeByOffset, calcOffsetToNode, findParent } from '../../utils/richEditorUtils';
-import { Decorator, Style, TextEditorSelection, TextEditorStore, uid } from './TextEditorStore';
+import { Decorator, Modifier, Style, TextEditorSelection, TextEditorStore, uid } from './TextEditorStore';
 import { isEqual } from 'vuesix';
 import TextEditorBlock from './TextEditorBlock.vue';
 import { TextEditorHistory } from './TextEditorHistory';
 import { createClipboardEvents } from './clipboardEvents';
 
+
 const props = defineProps<{ 
   decorator?: Decorator, 
+  modifier?: Modifier,
   single?: boolean, 
   modelValue?: { text: string, styles?: Style[], type?: string }[] | string, 
   parser?: TextParser,
@@ -41,6 +44,7 @@ const props = defineProps<{
   autoselect?: boolean,
   preventMultiline?: boolean
 }>()
+
 const emit = defineEmits([ "keydown", "update:modelValue", "update:styles" ])
 const slots = useSlots()
 

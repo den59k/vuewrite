@@ -1,29 +1,26 @@
 
 <script lang="ts">
 import { HTMLAttributes, computed, defineComponent, getCurrentInstance, h, nextTick } from 'vue';
-import { Style, Block, Decorator } from './TextEditorStore';
-import { TextParser } from './TextEditor.vue';
+import type { Style, Block, Decorator, Modifier } from './TextEditorStore';
+import type { TextParser } from './TextEditor.vue';
 
 type Props = {
   block: Block, 
   slots: Record<string, any>, 
   static?: boolean,
   decorator?: Decorator, 
+  modifier?: Modifier,
   parser?: TextParser
 }
 
 export default defineComponent({
-  props: [ "block", "slots", "static", "decorator", "parser" ],
+  props: [ "block", "slots", "static", "decorator", "modifier", "parser" ],
   emits: [ "postrender" ],
   setup(props: Props, { emit }) {
     const slot = computed(() => {
       if (!props.block.type) return props.slots['default'] ?? null
       return props.slots[props.block.type] ?? null
     })
-
-    const blockProps = {
-      "data-vw-block-id": props.block.id
-    }
 
     const instance = getCurrentInstance()
     const getRef = () => {
@@ -148,17 +145,31 @@ export default defineComponent({
           elementTag = tag
         }
       }
-      if (Object.keys(attrs).length === 0) return text
+      if (Object.keys(attrs).length === 0 && elementTag === 'span') return text
       return h(elementTag, attrs, text)
     }
 
     return () => {
+      let elementTag = 'div'
+      const blockProps: Record<string, string> = {
+        "data-vw-block-id": props.block.id
+      }
+
+      const additionalProps = props.modifier && props.modifier(props.block)
+      if (additionalProps) {
+        if (additionalProps.tag) {
+          elementTag = additionalProps.tag
+          delete additionalProps.tag
+        }
+        Object.assign(blockProps, additionalProps)
+      }
+
       if (slot.value) {
         const component = slot.value({ content, props: blockProps, block: props.block })
         if (Array.isArray(component) && component.length === 1) return component[0]
         return component
       } 
-      return h('div', blockProps, content())
+      return h(elementTag, blockProps, content())
     }
   }
 })
