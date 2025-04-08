@@ -1,6 +1,6 @@
 <template>
   <div class="code-editor" :contenteditable="false">
-    <TextEditor v-model="model" tabindex="2" :parser="parser" :decorator="decorator" preventMultiline spellcheck="false"/>
+    <TextEditor v-model="model" tabindex="2" :parser="parser" :decorator="decorator" preventMultiline spellcheck="false" @keydown="onKeyDown"/>
   </div>
 </template>
 
@@ -10,7 +10,7 @@ import { Style } from '../export';
 import { ref, watch } from 'vue';
 
 const props = defineProps<{ modelValue?: string }>()
-const emit = defineEmits([ "update:modelValue" ])
+const emit = defineEmits([ "update:modelValue", "newblockafter", "newblockbefore", "remove" ])
 
 const model = ref([{ text: "" }])
 if (props.modelValue) {
@@ -101,6 +101,17 @@ const parser = (text: string) => {
 const decorator = (style: Style) => {
   if (!style.meta) return {}
   return { style: `color: ${style.meta!.color};` }
+}
+
+const onKeyDown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.code === "Enter") {
+    e.preventDefault()
+    emit("newblockafter")
+  }
+  if (e.code === "Backspace" && !e.shiftKey && model.value.length <= 1 && model.value[0]?.text === "") {
+    e.preventDefault()
+    emit("remove")
+  }
 }
 
 </script>

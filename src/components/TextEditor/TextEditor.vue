@@ -66,12 +66,12 @@ watch(() => props.modelValue, (newValue) => {
     for (let i = 0; i < newValue.length; i++) {
       store.blocks[i].text = newValue[i].text
       store.blocks[i].type = newValue[i].type
-      store.blocks[i].styles = newValue[i].styles ?? []
+      store.blocks[i].styles = newValue[i].styles
     }
   }
 }, { immediate: true })
 
-let styles: Style[] | Style[][]
+let styles: Style[] | Style[][] | undefined
 watch(() => props.styles, (newStyles) => {
   if (!newStyles || newStyles.length === 0 || newStyles === styles) return
   for (let i = 0; i < store.blocks.length; i++) {
@@ -87,12 +87,7 @@ watch(() => store.blocks, () => {
     emit("update:styles", styles)
     emit("update:modelValue", modelValue)
   } else {
-    modelValue = store.blocks.map(item => ({ 
-      type: item.type,
-      text: item.text, 
-      styles: item.styles.length === 0? undefined: item.styles 
-    }))
-    emit("update:modelValue", modelValue)
+    emit("update:modelValue", store.blocks)
   }
 }, { deep: true })
 
@@ -175,9 +170,6 @@ const applySelection = () => {
     return
   }
   if (isEqual(store.selection, cachedSelection)) return
-  if (store.selection.anchor.blockId === store.selection.focus.blockId && store.currentBlock && store.currentBlock.editable === false) {
-    return
-  }
 
   const anchor = getNode(store.selection.anchor.blockId)
   const focus = getNode(store.selection.focus.blockId)
@@ -189,6 +181,14 @@ const applySelection = () => {
       ...calcNodeByOffset(focus, store.selection.focus.offset)
     )
   }
+
+  if (store.selection.anchor.blockId === store.selection.focus.blockId && store.currentBlock?.editable === false) {
+    const innerText = (anchor as HTMLElement)?.querySelector("[data-vw-block-id]")
+    if (innerText) {
+      nativeSelection.setBaseAndExtent(innerText, 0, innerText, 0)
+    }
+  }
+
   cachedSelection = JSON.parse(JSON.stringify(store.selection))
 }
 
@@ -235,6 +235,7 @@ defineExpose({
   insertBlock: store.insertBlock.bind(store),
   addNewLine: store.addNewLine.bind(store),
   removeNewLine: store.removeNewLine.bind(store),
+  removeCurrentBlock: store.removeCurrentBlock.bind(store),
   selectAll: store.selectAll.bind(store),
   pushHistory: store.history.push.bind(store.history),
   getClientRects
@@ -258,7 +259,8 @@ export type TextEditorRef = Pick<TextEditorStore,
   "insertBlock" |
   "addNewLine" |
   "removeNewLine" |
-  "selectAll" 
+  "selectAll" | 
+  "removeCurrentBlock"
 > & { 
   isFocused: boolean, 
   getClientRects: (selection: TextEditorSelection) => DOMRectList,

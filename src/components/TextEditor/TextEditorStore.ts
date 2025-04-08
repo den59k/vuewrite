@@ -3,7 +3,7 @@ import { clamp, isEqual } from "vuesix"
 import { TextEditorHistory } from "./TextEditorHistory"
 
 export type Style = { start: number, end: number, style: string, meta?: any }
-export type Block = { id: string, text: string, type?: string, styles: Style[], editable?: boolean }
+export type Block = { id: string, text: string, type?: string, styles?: Style[], editable?: boolean }
 export type Decorator = (style: Style) => HTMLAttributes & { tag?: string } | undefined
 export type Renderer = (block: Block) => HTMLAttributes & { tag?: string } | undefined
 export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
@@ -59,28 +59,61 @@ export class TextEditorStore {
     this.selection.anchor.offset = newOffset
     this.selection.focus.offset = newOffset
   }
+  
+  private addStyleToBlock (block: Block, style: Style) {
+    if (!block.styles) {
+      block.styles = [ style]
+    } else {
+      block.styles.push(style)
+    }
+    block.styles.sort((a, b) => a.start - b.start)
+  }
 
   concatBlocks(start: Block, end: Block) {
-    for (let style of end.styles) {
-      style.start += start.text.length
-      style.end += start.text.length
-      start.styles.push(style)
+    if (end.styles) {
+      for (let style of end.styles) {
+        style.start += start.text.length
+        style.end += start.text.length
+        this.addStyleToBlock(start, style)
+      }
     }
     start.text = start.text + end.text
+  }
+
+  removeCurrentBlock() {
+    const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
+    if (blockIndex < 0) return
+    this.blocks.splice(blockIndex, 1)
+
+    if (this.blocks.length === 0) {
+      this.blocks.push({ id: uid(), text: "" })
+    }
+    const newBlockIndex = Math.max(blockIndex-1, 0)
+    this.selection.anchor.blockId = this.blocks[newBlockIndex].id
+    this.selection.focus.blockId = this.blocks[newBlockIndex].id
+    this.selection.anchor.offset = blockIndex === 0? 0: this.blocks[newBlockIndex].text.length
+    this.selection.focus.offset = blockIndex === 0? 0: this.blocks[newBlockIndex].text.length
+    this.history.push("removeBlock")
   }
 
   removeNewLine() {
     const blockIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
     if (blockIndex < 1) return
 
-    this.selection.anchor.blockId = this.blocks[blockIndex-1].id
-    this.selection.focus.blockId = this.blocks[blockIndex-1].id
-    this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
-    this.selection.focus.offset = this.blocks[blockIndex-1].text.length
-
     if (this.blocks[blockIndex-1].editable === false) {
-      this.blocks.splice(blockIndex-1, 1)
+      if (this.blocks[blockIndex].text === "") {
+        this.blocks.splice(blockIndex, 1)
+      }
+      this.selection.anchor.blockId = this.blocks[blockIndex-1].id
+      this.selection.focus.blockId = this.blocks[blockIndex-1].id
+      this.selection.anchor.offset = 0
+      this.selection.focus.offset = 0
+      // this.blocks.splice(blockIndex-1, 1)
     } else {
+      this.selection.anchor.blockId = this.blocks[blockIndex-1].id
+      this.selection.focus.blockId = this.blocks[blockIndex-1].id
+      this.selection.anchor.offset = this.blocks[blockIndex-1].text.length
+      this.selection.focus.offset = this.blocks[blockIndex-1].text.length
       this.concatBlocks(this.blocks[blockIndex-1], this.blocks[blockIndex])
       this.blocks.splice(blockIndex, 1)
     }
@@ -135,23 +168,28 @@ export class TextEditorStore {
     }
   }
 
+  addNewLineBefore() {
+    const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
+    const block = { id: uid(), text: "" }
+    this.blocks.splice(index, 0, block)
+    
+    this.history.push("addNewLine")
+  }
+
   addNewLine() {
-    if (this.isCollapsed && this.selection.anchor.offset === 0) {
-      const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
-      const block = { id: uid(), text: "", styles: [] }
-      this.blocks.splice(index, 0, block)
-      
-      this.history.push("addNewLine")
+    if (this.isCollapsed && this.selection.anchor.offset === 0 && this.currentBlock?.editable !== false) {
+      this.addNewLineBefore()
       return
     }
 
     this.deleteSelected()
 
     if (!this.currentBlock) return
-    const endText = this.currentBlock.text.slice(this.selection.anchor.offset)
+
+    const endText = this.currentBlock.editable === false? "": this.currentBlock.text.slice(this.selection.anchor.offset)
     this.currentBlock.text = this.currentBlock.text.slice(0, this.selection.anchor.offset)
 
-    const block = { id: uid(), text: endText || "", styles: [] }
+    const block = { id: uid(), text: endText || "" }
     const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
     this.blocks.splice(index+1, 0, block)
     this.selection.anchor = { blockId: block.id, offset: 0 }
@@ -162,7 +200,7 @@ export class TextEditorStore {
 
   addNewLineAfter() {
     const index = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
-    const block = { id: uid(), text: "", styles: [] }
+    const block = { id: uid(), text: "" }
     this.blocks.splice(index+1, 0, block)
     return block
   }
@@ -210,6 +248,7 @@ export class TextEditorStore {
   }
 
   private moveStyles(block: Block, offset: number, delta: number) {
+    if (!block.styles) return
     for (let i = 0; i < block.styles.length; i++) {
       const style = block.styles[i]
       if (style.start >= offset) style.start -= delta
@@ -250,7 +289,9 @@ export class TextEditorStore {
     const styles = new Map<string, Style>()
     if (startIndex < 0) return styles
     for (let i = startIndex; i <= endIndex; i++) {
-      for (let style of this.blocks[i].styles) {
+      const blockStyles = this.blocks[i].styles
+      if (!blockStyles) continue
+      for (let style of blockStyles) {
         if (i === startIndex && start.offset < style.start) continue
         if (i === endIndex && end.offset > style.end) continue
         styles.set(style.style, style)
@@ -272,18 +313,20 @@ export class TextEditorStore {
       const _end = i === endIndex? end.offset: block.text.length
 
       let createNewStyle = true
-      for (let style of block.styles) {
-        if (style.style !== _style) continue
-        if (style.start > _end || style.end < _start) continue
-
-        if (meta && !isEqual(meta, style.meta) && (style.start !== _start || style.end !== _end)) {
-          if (_start === style.end || _end === style.start) continue
-          this.removeStyleAt(block, _start, _end, _style)
-        } else {
-          style.start = Math.min(style.start, _start)
-          style.end = Math.max(style.end, _end)
-          createNewStyle = false
-          style.meta = meta
+      if (block.styles) {
+        for (let style of block.styles) {
+          if (style.style !== _style) continue
+          if (style.start > _end || style.end < _start) continue
+  
+          if (meta && !isEqual(meta, style.meta) && (style.start !== _start || style.end !== _end)) {
+            if (_start === style.end || _end === style.start) continue
+            this.removeStyleAt(block, _start, _end, _style)
+          } else {
+            style.start = Math.min(style.start, _start)
+            style.end = Math.max(style.end, _end)
+            createNewStyle = false
+            style.meta = meta
+          }
         }
       }
       if (createNewStyle) {
@@ -293,8 +336,7 @@ export class TextEditorStore {
           style: _style,
           meta
         }
-        block.styles.push(newStyle)
-        block.styles.sort((a, b) => a.start - b.start)
+        this.addStyleToBlock(block, newStyle)
       }
     }
     this.history.push("applyStyle")
@@ -302,6 +344,7 @@ export class TextEditorStore {
 
   removeStyleAt(block: Block, _start: number, _end: number, _style?: string) {
     const removeAll = typeof _style !== "string"
+    if (!block.styles) return
     for (let i = 0; i < block.styles.length; i++) {
       const style = block.styles[i]
       if (!removeAll && style.style !== _style) continue
@@ -318,6 +361,9 @@ export class TextEditorStore {
       } else if (style.end > _end) {
         style.start = _end
       }
+    }
+    if (block.styles.length === 0) {
+      delete block.styles
     }
   }
 
@@ -337,7 +383,7 @@ export class TextEditorStore {
     for (let i = startIndex; i <= endIndex; i++) {
       const block = this.blocks[i]
       if (i > startIndex && i < endIndex) {
-        block.styles.length = 0
+        delete block.styles
         return
       }
       const _start = i === startIndex? start.offset: 0

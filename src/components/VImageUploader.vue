@@ -50,5 +50,9 @@ const onInputChange = (e: Event) => {
 
   img
     max-width: 200px
-    max-height: 250px
+    max-height: 200px
+
+  &:focus-visible, &.selected
+    border-color: #0066FF
+
 </style>

@@ -17,10 +17,15 @@
       @keydown="onKeyDown"
     >
       <template #code="{ props, block }">
-        <CodeEditor v-model="block.text"  v-bind="props" />
+        <CodeEditor v-model="block.text" v-bind="props" @newblockafter="textEditorRef?.addNewLine()" @remove="textEditorRef?.removeCurrentBlock()"/>
       </template>
       <template #image="{ props, block }">
-        <VImageUploader v-model="block.src" :contenteditable="false" v-bind="props"/>
+        <VImageUploader 
+          v-model="block.image" 
+          :contenteditable="false" 
+          :class="{ selected: block.id === textEditorRef?.selection.focus.blockId }"
+          v-bind="props" 
+        />
       </template>
       <template #placeholder>
         <div class="text-editor__placeholder" :contenteditable="false">
@@ -32,8 +37,8 @@
       <template #code="{ props, block }">
         <CodeEditor v-model="block.text"  v-bind="props" />
       </template>
-      <template #image="{ props, block }">
-        <VImageUploader v-model="block.src" :contenteditable="false" v-bind="props"/>
+      <template #image="{ block }">
+        <img :src="block.image?.src" style="max-width: 350px; max-height: 350px"/>
       </template>
       <template #placeholder>
         <div class="text-editor__placeholder" :contenteditable="false">
@@ -56,7 +61,7 @@
 <script lang="ts" setup>
 import { computed, ref, shallowRef, watch } from 'vue';
 import TextEditor, { TextEditorRef } from './components/TextEditor/TextEditor.vue';
-import { Style } from './components/TextEditor/TextEditorStore';
+import { Block, Style } from './components/TextEditor/TextEditorStore';
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
@@ -67,7 +72,6 @@ import VPopover from './components/VPopover.vue';
 import VImageUploader from './components/VImageUploader.vue';
 import CodeEditor from './components/CodeEditor.vue';
 import TextEditorView from './components/TextEditor/TextEditorView.vue';
-import { Block } from 'vuewrite';
 
 const textEditorRef = shallowRef<TextEditorRef>()
 const text = ref([{ text: "" }])
@@ -141,6 +145,10 @@ const onKeyDown = (e: KeyboardEvent) => {
     if (e.code === "KeyU") {
       textEditorRef.value?.toggleStyle("underline")
     }
+  }
+  if (textEditorRef.value?.currentBlock?.editable === false && textEditorRef.value.currentBlock.type !== 'code' && (e.code === "Backspace" || e.code === "Delete")) {
+    textEditorRef.value.removeCurrentBlock()
+    e.preventDefault()
   }
   if (e.key === "Enter" && popoverOpen.value && activeItem.value) {
     e.preventDefault()
