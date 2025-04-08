@@ -13,7 +13,7 @@
       :key="block.id" 
       :block="block" 
       :slots="slots"
-      :modifier="props.modifier"
+      :renderer="props.renderer"
       :decorator="props.decorator"
       :parser="props.parser"
       @postrender="onPostRender"
@@ -26,7 +26,7 @@
 import { useEventListener } from '@vueuse/core';
 import { isProxy, nextTick, onMounted, ref, toRaw, useSlots, watch } from 'vue';
 import { calcNodeByOffset, calcOffsetToNode, findParent } from '../../utils/richEditorUtils';
-import { Decorator, Modifier, Style, TextEditorSelection, TextEditorStore, uid } from './TextEditorStore';
+import { Decorator, Renderer, Style, TextEditorSelection, TextEditorStore, uid } from './TextEditorStore';
 import { isEqual } from 'vuesix';
 import TextEditorBlock from './TextEditorBlock.vue';
 import { TextEditorHistory } from './TextEditorHistory';
@@ -35,7 +35,7 @@ import { createClipboardEvents } from './clipboardEvents';
 
 const props = defineProps<{ 
   decorator?: Decorator, 
-  modifier?: Modifier,
+  renderer?: Renderer,
   single?: boolean, 
   modelValue?: { text: string, styles?: Style[], type?: string }[] | string, 
   parser?: TextParser,

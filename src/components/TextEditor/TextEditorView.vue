@@ -2,19 +2,19 @@
 <script lang="ts">
 import { computed, defineComponent, h } from 'vue';
 import TextEditorBlock from './TextEditorBlock.vue';
-import type { Block, Decorator, Modifier, Style } from './TextEditorStore';
+import type { Block, Decorator, Renderer, Style } from './TextEditorStore';
 import type { TextParser } from './TextEditor.vue';
 
 type Props = { 
   modelValue: { text: string, styles?: Style[], type?: string }[] | string,
   decorator?: Decorator, 
-  modifier?: Modifier,
+  renderer?: Renderer,
   parser?: TextParser,
   styles?: Style[],
 }
 
 export default defineComponent({
-  props: [ "modelValue", "decorator", "parser", "styles", "modifier" ],
+  props: [ "modelValue", "decorator", "parser", "styles", "renderer" ],
   setup(props: Props, { slots }) {
 
     const blocks = computed<Block[]>(() => {
@@ -29,7 +29,7 @@ export default defineComponent({
       block: block,
       slots,
       decorator: props.decorator,
-      modifier: props.modifier,
+      renderer: props.renderer,
       parser: props.parser,
       static: true
     })))

@@ -1,7 +1,7 @@
 
 <script lang="ts">
 import { HTMLAttributes, computed, defineComponent, getCurrentInstance, h, nextTick } from 'vue';
-import type { Style, Block, Decorator, Modifier } from './TextEditorStore';
+import type { Style, Block, Decorator, Renderer } from './TextEditorStore';
 import type { TextParser } from './TextEditor.vue';
 
 type Props = {
@@ -9,12 +9,12 @@ type Props = {
   slots: Record<string, any>, 
   static?: boolean,
   decorator?: Decorator, 
-  modifier?: Modifier,
+  renderer?: Renderer,
   parser?: TextParser
 }
 
 export default defineComponent({
-  props: [ "block", "slots", "static", "decorator", "modifier", "parser" ],
+  props: [ "block", "slots", "static", "decorator", "renderer", "parser" ],
   emits: [ "postrender" ],
   setup(props: Props, { emit }) {
     const slot = computed(() => {
@@ -155,7 +155,7 @@ export default defineComponent({
         "data-vw-block-id": props.block.id
       }
 
-      const additionalProps = props.modifier && props.modifier(props.block)
+      const additionalProps = props.renderer && props.renderer(props.block)
       if (additionalProps) {
         if (additionalProps.tag) {
           elementTag = additionalProps.tag

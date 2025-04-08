@@ -10,7 +10,7 @@
     <TextEditor 
       ref="textEditorRef"
       v-model="text"
-      :modifier="modifier"
+      :renderer="renderer"
       :decorator="decorator" 
       class="text-editor"
       autofocus
@@ -28,7 +28,7 @@
         </div>
       </template>
     </TextEditor>
-    <TextEditorView :model-value="text" class="text-editor" :modifier="modifier" :decorator="decorator" >
+    <TextEditorView :model-value="text" class="text-editor" :renderer="renderer" :decorator="decorator" >
       <template #code="{ props, block }">
         <CodeEditor v-model="block.text"  v-bind="props" />
       </template>
@@ -183,7 +183,7 @@ const onKeyDown = (e: KeyboardEvent) => {
   }
 }
 
-const modifier = (block: Block) => {
+const renderer = (block: Block) => {
   if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3' || block.type === 'li') return { tag: block.type }
 }
 

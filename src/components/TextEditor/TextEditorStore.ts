@@ -5,7 +5,7 @@ import { TextEditorHistory } from "./TextEditorHistory"
 export type Style = { start: number, end: number, style: string, meta?: any }
 export type Block = { id: string, text: string, type?: string, styles: Style[], editable?: boolean }
 export type Decorator = (style: Style) => HTMLAttributes & { tag?: string } | undefined
-export type Modifier = (block: Block) => HTMLAttributes & { tag?: string } | undefined
+export type Renderer = (block: Block) => HTMLAttributes & { tag?: string } | undefined
 export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }
 
 export class TextEditorStore {
