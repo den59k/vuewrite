@@ -19,8 +19,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3",
-    "vuewrite": "^0.0.19"
+    "vue": "^3"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",

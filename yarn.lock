@@ -1080,13 +1080,6 @@ vuesix@^1.0.12:
   resolved "https://registry.yarnpkg.com/vuesix/-/vuesix-1.0.12.tgz#d29328a0ad7cfb65b7cfd8f2e1e6d709b11e37f4"
   integrity sha512-ZRuHSBhCqZ5O0BFoOdeMKJnilcoO6i7KCHA3D/uZr9icOwJTYaQQBHN9SSctU8S1Htlr2TG/QXc2ToPIAgcAMg==
 
-vuewrite@^0.0.19:
-  version "0.0.19"
-  resolved "https://registry.yarnpkg.com/vuewrite/-/vuewrite-0.0.19.tgz#a70faf9a7d2dc73ae17b45113d493234c267062b"
-  integrity sha512-NHKmI+SYc6WDtkI9s9nWVp6/QVyq0hYp5hXq0ywkTCo7acgXs3XF24BiXYiqezX0VvojwmG1TaJvp5t0VhU73Q==
-  dependencies:
-    vue "^3"
-
 yallist@^4.0.0:
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/yallist/-/yallist-4.0.0.tgz#9bb92790d9c0effec63be73519e11a35019a3a72"
