@@ -227,6 +227,7 @@ defineExpose({
   isCollapsed: store._isCollapsed,
   selection: store.selection,
   isFocused: store.isFocused,
+  getCurrentBlocks: store.getCurrentBlocks.bind(store),
   toggleStyle: store.toggleStyle.bind(store),
   applyStyle: store.applyStyle.bind(store),
   removeStyle: store.removeStyle.bind(store),
@@ -251,6 +252,7 @@ export type TextEditorRef = Pick<TextEditorStore,
   "currentBlock" | 
   "isCollapsed" |
   "selection" |
+  "getCurrentBlocks" |
   "toggleStyle" |
   "applyStyle" |
   "removeStyle" |

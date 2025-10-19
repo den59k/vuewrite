@@ -35,6 +35,20 @@ export class TextEditorStore {
     return this._currentBlock.value
   }
 
+  *getCurrentBlocks(): Generator<Block> {
+    const blockAnchorIndex = this.blocks.findIndex(item => item.id === this.selection.anchor.blockId)
+    const focusAnchorIndex = this.blocks.findIndex(item => item.id === this.selection.focus.blockId)
+
+    if (blockAnchorIndex === -1 || focusAnchorIndex === -1) return;
+
+    const start = Math.min(blockAnchorIndex, focusAnchorIndex);
+    const end = Math.max(blockAnchorIndex, focusAnchorIndex);
+
+    for (let i = start; i <= end; i++) {
+      yield this.blocks[i];
+    }
+  }
+
   _selectedText = computed(() => {
     if (this.isCollapsed) return ""
     const [ start, end, startIndex, endIndex ] = this.startAndEnd
