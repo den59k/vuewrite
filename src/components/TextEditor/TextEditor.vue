@@ -8,6 +8,7 @@
     @paste="onPaste"
     @cut="onCut"
   >
+    <slot name="_before"></slot>
     <TextEditorBlock 
       v-for="block in store.blocks" 
       :key="block.id" 
@@ -19,6 +20,7 @@
       @postrender="onPostRender"
     />
     <slot v-if="store.blocks.length === 1 && store.blocks[0].text === '' && !store.blocks[0].type" name="placeholder"></slot>
+    <slot name="_after"></slot>
   </div>
 </template>
 
