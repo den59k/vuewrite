@@ -121,14 +121,26 @@ const textColor = computed({
 
 const blockType = computed({
   get() {
-    return textEditorRef.value?.currentBlock?.type ?? "default"
+    if (!textEditorRef.value) return "default"
+    let type = ""
+    for (let block of textEditorRef.value.getCurrentBlocks()) {
+      if (type === "") {
+        type = block.type ?? "default"
+      } else if (type !== (block.type ?? "default")) {
+        type = "mixed"
+        break
+      }
+    }
+    return type
   },
   set(type) {
-    if (!textEditorRef.value?.currentBlock) return
-    if (type === "default") {
-      textEditorRef.value.currentBlock.type = undefined
-    } else {
-      textEditorRef.value.currentBlock.type = type ?? undefined
+    if (!textEditorRef.value) return
+    for (let block of textEditorRef.value.getCurrentBlocks()) {
+      if (type === "default") {
+        block.type = undefined
+      } else {
+        block.type = type ?? undefined
+      }
     }
     textEditorRef.value.pushHistory("changeBlockType")
   }
