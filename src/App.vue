@@ -14,6 +14,7 @@
       :decorator="decorator" 
       class="text-editor"
       autofocus
+      :html-parser="htmlParser"
       @keydown="onKeyDown"
     >
       <template #code="{ props, block }">
@@ -33,7 +34,7 @@
         </div>
       </template>
     </TextEditor>
-    <TextEditorView :model-value="text" class="text-editor" :renderer="renderer" :decorator="decorator" >
+    <TextEditorView :model-value="text" class="text-editor" :renderer="renderer" :decorator="decorator" :list-parser="listCreator">
       <template #code="{ props, block }">
         <CodeEditor v-model="block.text"  v-bind="props" />
       </template>
@@ -61,7 +62,7 @@
 <script lang="ts" setup>
 import { computed, ref, shallowRef, watch } from 'vue';
 import TextEditor, { TextEditorRef } from './components/TextEditor/TextEditor.vue';
-import { Block, Style } from './components/TextEditor/TextEditorStore';
+import { Block, Style, uid } from './components/TextEditor/TextEditorStore';
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
@@ -74,7 +75,7 @@ import CodeEditor from './components/CodeEditor.vue';
 import TextEditorView from './components/TextEditor/TextEditorView.vue';
 
 const textEditorRef = shallowRef<TextEditorRef>()
-const text = ref([{ text: "" }])
+const text = ref([{ id: uid(), text: "" }])
 
 const toggleStyle = (style: string) => {
   if (!textEditorRef.value) return
@@ -102,7 +103,8 @@ const items = [
   { id: "h1", title: "Heading 1" },
   { id: "h2", title: "Heading 2" },
   { id: "h3", title: "Heading 3" },
-  { id: "li", title: "List" }
+  { id: "li", title: "List" },
+  { id: "ol", title: "Numbered list" },
 ]
 
 const textColor = computed({
@@ -167,10 +169,11 @@ const onKeyDown = (e: KeyboardEvent) => {
     activeItem.value.onClick()
     return
   }
-  if (e.key === "Enter" && !e.shiftKey && textEditorRef.value?.currentBlock?.type === "li") {
+  const currentType = textEditorRef.value?.currentBlock?.type
+  if (textEditorRef.value && e.key === "Enter" && !e.shiftKey && (currentType === "li" || currentType === "ol")) {
     e.preventDefault()
     textEditorRef.value.addNewLine()
-    textEditorRef.value!.currentBlock.type = "li"
+    textEditorRef.value.currentBlock!.type = currentType
     textEditorRef.value.pushHistory("setText")
   }
   if ((e.key === "ArrowUp" || e.key === "ArrowDown") && popoverOpen.value && visibleBlocks.value.length > 0) {
@@ -205,6 +208,7 @@ const onKeyDown = (e: KeyboardEvent) => {
 
 const renderer = (block: Block) => {
   if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3' || block.type === 'li') return { tag: block.type }
+  if (block.type === 'ol') return { tag: 'li', className: "ol" }
 }
 
 const decorator = (style: Style) => {
@@ -220,6 +224,13 @@ const decorator = (style: Style) => {
   if (style.style === 'italic') {
     return { tag: 'i' }
   }
+}
+
+const htmlParser = (el: Element) => {
+  if (el.tagName === "H1") return "h1"
+  if (el.tagName === "H2") return "h2"
+  if (el.tagName === "H3") return "h3"
+  if (el.tagName === "LI") return "li"
 }
 
 const currentWord = computed(() => {
@@ -295,6 +306,15 @@ watch(currentWord, (currentWord) => {
   }
 }, { flush: "post" })
 
+const listCreator = (block: Block) => {
+  if (block.type === 'li') {
+    return 'ul'
+  }
+  if (block.type === 'ol') {
+    return 'ol'
+  }
+}
+
 </script>
 
 <style lang="sass">
@@ -317,6 +337,9 @@ watch(currentWord, (currentWord) => {
   
   .underline
     text-decoration: underline
+
+  li.ol
+    list-style-type: decimal
 
 .text-editor__placeholder
   position: absolute

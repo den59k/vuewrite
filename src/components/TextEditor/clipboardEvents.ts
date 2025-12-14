@@ -1,6 +1,9 @@
 import { TextEditorStore } from "./TextEditorStore"
 
-export const createClipboardEvents = (store: TextEditorStore, props: { preventMultiline?: boolean }) => {
+export const createClipboardEvents = (store: TextEditorStore, props: { 
+  preventMultiline?: boolean, 
+  htmlParser?: (el: Element) => string | null | void
+}) => {
 
   const getSelected = () => {
 
@@ -49,7 +52,7 @@ export const createClipboardEvents = (store: TextEditorStore, props: { preventMu
     store.history.push("setText")
   }
 
-  const insertText = (text: string) => {
+  const insertText = (text: string, type?: string) => {
     if (props.preventMultiline) {
       const blocks = text.split("\n")
       store.insertText(blocks[0])
@@ -58,11 +61,14 @@ export const createClipboardEvents = (store: TextEditorStore, props: { preventMu
         store.insertText(blocks[i])
       }
     } else {
+      if (type && store.currentBlock) {
+        store.currentBlock.type = type
+      }
       store.insertText(text)
     }
   }
 
-  const parseHtml = (node: HTMLElement) => {
+  const parseHtml = (node: HTMLElement, type?: string) => {
     let isTextNode = false
     for (let _node of node.childNodes) {
       if ((_node.nodeType === Node.TEXT_NODE && _node.textContent?.trim()) || 
@@ -74,15 +80,19 @@ export const createClipboardEvents = (store: TextEditorStore, props: { preventMu
     if (isTextNode) {
       const text = node.textContent
       if (!text) return
-      insertText(text)
+      insertText(text, type ?? props.htmlParser?.(node) ?? undefined)
       store.addNewLine()
       return
     }
     for (let child of node.children) {
       if (child.tagName === "DIV") {
-        parseHtml(child as HTMLDivElement)
+        parseHtml(child as HTMLDivElement, type)
+      } else if (child.tagName === "UL") {
+        for (let li of child.children) {
+          parseHtml(li as HTMLDivElement, props.htmlParser?.(li) ?? undefined)
+        }
       } else {
-        insertText(child.textContent ?? "")
+        insertText(child.textContent ?? "", type ?? props.htmlParser?.(child) ?? undefined)
         store.addNewLine()
       }
     }

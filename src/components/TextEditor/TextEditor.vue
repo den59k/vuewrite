@@ -8,7 +8,6 @@
     @paste="onPaste"
     @cut="onCut"
   >
-    <slot name="_before"></slot>
     <TextEditorBlock 
       v-for="block in store.blocks" 
       :key="block.id" 
@@ -20,7 +19,6 @@
       @postrender="onPostRender"
     />
     <slot v-if="store.blocks.length === 1 && store.blocks[0].text === '' && !store.blocks[0].type" name="placeholder"></slot>
-    <slot name="_after"></slot>
   </div>
 </template>
 
@@ -44,7 +42,8 @@ const props = defineProps<{
   styles?: Style[],
   autofocus?: boolean,
   autoselect?: boolean,
-  preventMultiline?: boolean
+  preventMultiline?: boolean,
+  htmlParser?: (el: Element) => string | null | void
 }>()
 
 const emit = defineEmits([ "keydown", "update:modelValue", "update:styles" ])
