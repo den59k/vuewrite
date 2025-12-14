@@ -87,7 +87,7 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
     for (let child of node.children) {
       if (child.tagName === "DIV") {
         parseHtml(child as HTMLDivElement, type)
-      } else if (child.tagName === "UL") {
+      } else if (child.tagName === "UL" || child.tagName === "OL") {
         for (let li of child.children) {
           parseHtml(li as HTMLDivElement, props.htmlParser?.(li) ?? undefined)
         }
