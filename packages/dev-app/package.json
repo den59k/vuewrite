@@ -1,0 +1,25 @@
+{
+  "name": "vuewrite-dev-app",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3",
+    "vuewrite": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vueuse/core": "^10.10.0",
+    "color2k": "^2.0.3",
+    "sass": "1.76",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.6",
+    "vuesix": "^1.0.12"
+  }
+}
