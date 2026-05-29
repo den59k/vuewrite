@@ -2,17 +2,24 @@
   <div class="app-layout">
 
     <div class="toolbar">
-      <VSelect v-model="blockType" :items="blockTypeItems"/>
-      <button
-        v-for="btn in styleButtons"
-        :key="btn.style"
-        class="style-btn"
-        :class="{ active: btn.active }"
-        @click="toggleStyle(btn.style)"
-      >
-        <component :is="btn.icon" />
-      </button>
-      <VColorPicker v-model="textColor"/>
+      <div class="toolbar-controls">
+        <VSelect v-model="blockType" :items="blockTypeItems"/>
+        <button
+          v-for="btn in styleButtons"
+          :key="btn.style"
+          class="style-btn"
+          :class="{ active: btn.active }"
+          @click="toggleStyle(btn.style)"
+        >
+          <component :is="btn.icon" />
+        </button>
+        <VColorPicker v-model="textColor"/>
+      </div>
+      <div style="flex: 1 1 auto"></div>
+      <div class="brand">
+        <span class="brand-title">VueWrite</span>
+        <span class="brand-slogan">Rich text editor for Vue</span>
+      </div>
       <a href="https://github.com/den59k/vuewrite" target="_blank" class="github-link">
         <GithubIcon/>
         GitHub
@@ -88,6 +95,16 @@
 
     </div>
 
+    <div class="console-panel" :class="{ collapsed: !consoleVisible }">
+      <div class="console-header">
+        <span class="panel-label">State</span>
+        <button class="console-toggle" @click="consoleVisible = !consoleVisible">
+          {{ consoleVisible ? 'Hide' : 'Show' }}
+        </button>
+      </div>
+      <pre v-if="consoleVisible" class="console-output">{{ JSON.stringify(text, null, 2) }}</pre>
+    </div>
+
     <VPopover
       :anchor-position="popoverPosition"
       placement="bottom-start"
@@ -128,6 +145,7 @@ import GithubIcon from './components/icons/GithubIcon.vue'
 
 const textEditorRef = shallowRef<TextEditorRef>()
 const text = ref([{ id: uid(), text: '' }])
+const consoleVisible = ref(true)
 
 // ── Toolbar ──────────────────────────────────────────────────────────────────
 
@@ -354,9 +372,32 @@ const onKeyDown = (e: KeyboardEvent) => {
   gap: 4px
   flex: 0 0 auto
 
+.brand
+  display: flex
+  flex-direction: column
+  justify-content: center
+  margin-right: 16px
+
+.brand-title
+  font-size: 16px
+  font-weight: 700
+  letter-spacing: -0.02em
+  color: white
+
+.brand-slogan
+  font-size: 11px
+  opacity: 0.4
+  margin-top: 1px
+
+.toolbar-controls
+  display: flex
+  align-items: center
+  gap: 4px
+  flex: 0 0 auto
+
   .v-select
     width: 200px
-    margin-right: 12px
+    margin-right: 8px
 
 .github-link
   display: flex
@@ -368,7 +409,6 @@ const onKeyDown = (e: KeyboardEvent) => {
   padding: 0 12px
   height: 48px
   border-radius: 8px
-  margin-left: auto
   opacity: 0.7
 
   &:hover
@@ -468,6 +508,50 @@ const onKeyDown = (e: KeyboardEvent) => {
 
   &:focus
     border-color: rgba(255, 255, 255, 0.2)
+
+// ── Console panel ─────────────────────────────────────────────────────────────
+
+.console-panel
+  flex: 0 0 350px
+  display: flex
+  flex-direction: column
+  gap: 6px
+  overflow: hidden
+
+  &.collapsed
+    flex: 0 0 auto
+
+.console-header
+  display: flex
+  align-items: center
+  gap: 8px
+
+.console-toggle
+  background: none
+  border: 1px solid rgba(255, 255, 255, 0.15)
+  border-radius: 4px
+  color: rgba(255, 255, 255, 0.5)
+  font-size: 11px
+  padding: 1px 8px
+  cursor: pointer
+
+  &:hover
+    border-color: rgba(255, 255, 255, 0.35)
+    color: white
+
+.console-output
+  flex: 1 1 0
+  overflow-y: auto
+  margin: 0
+  padding: 12px
+  background: rgba(255, 255, 255, 0.04)
+  border: 1px solid rgba(255, 255, 255, 0.08)
+  border-radius: 8px
+  color: rgba(255, 255, 255, 0.7)
+  font-family: monospace
+  font-size: 12px
+  line-height: 1.5
+  white-space: pre
 
 // ── Slash-command popover ─────────────────────────────────────────────────────
 
