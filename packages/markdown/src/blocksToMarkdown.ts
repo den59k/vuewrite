@@ -1,0 +1,156 @@
+import type { Block, Style } from './types.ts'
+
+const MARKERS: Record<string, { open: string; close: string }> = {
+  bold:      { open: '**', close: '**' },
+  italic:    { open: '*',  close: '*'  },
+  underline: { open: '__', close: '__' },
+  code:      { open: '`',  close: '`'  },
+}
+
+/**
+ * Converts an array of Vuewrite Block objects to a Markdown string.
+ *
+ * Block type mapping:
+ *   { type: "h1" }               → # text
+ *   { type: "h2" }               → ## text
+ *   { type: "h3" }               → ### text
+ *   { type: "li" }               → - text
+ *   { type: "ol" }               → 1. text  (auto-numbered per consecutive run)
+ *   { type: "code", ... }        → ```\ntext\n```
+ *   { type: undefined/default }  → text (or empty line)
+ *
+ * Inline style mapping:
+ *   bold      → **text**
+ *   italic    → *text*
+ *   underline → __text__
+ *   code      → `text`
+ *   link      → [text](href)
+ *   color     → plain text (no Markdown equivalent)
+ */
+export function blocksToMarkdown(blocks: Block[]): string {
+  const lines: string[] = []
+  let olCounter = 0
+
+  for (const block of blocks) {
+    if (block.type === 'code') {
+      lines.push('```')
+      lines.push(block.text)
+      lines.push('```')
+      olCounter = 0
+      continue
+    }
+
+    const inline = renderInline(block.text, block.styles ?? [])
+
+    switch (block.type) {
+      case 'h1': lines.push(`# ${inline}`);  olCounter = 0; break
+      case 'h2': lines.push(`## ${inline}`); olCounter = 0; break
+      case 'h3': lines.push(`### ${inline}`);olCounter = 0; break
+      case 'li': lines.push(`- ${inline}`);  olCounter = 0; break
+      case 'ol': lines.push(`${++olCounter}. ${inline}`); break
+      default:   lines.push(inline);         olCounter = 0; break
+    }
+  }
+
+  return lines.join('\n')
+}
+
+function escapeMarkdown(text: string): string {
+  return text.replace(/[\\*_`\[\]]/g, '\\$&')
+}
+
+type Segment = { start: number; end: number; formats: string[]; linkHref?: string }
+
+function buildSegments(text: string, styles: Style[]): Segment[] {
+  const linkStyles = styles.filter(s => s.style === 'link')
+  const formatStyles = styles.filter(s => s.style in MARKERS)
+
+  const bpSet = new Set([0, text.length])
+  for (const s of [...linkStyles, ...formatStyles]) {
+    bpSet.add(s.start)
+    bpSet.add(s.end)
+  }
+  const breakpoints = [...bpSet].sort((a, b) => a - b)
+
+  const segments: Segment[] = []
+  for (let i = 0; i < breakpoints.length - 1; i++) {
+    const start = breakpoints[i]
+    const end = breakpoints[i + 1]
+
+    const formats = formatStyles
+      .filter(s => s.start <= start && s.end >= end)
+      .map(s => s.style)
+      // Sort by marker length descending so longer markers nest outermost
+      .sort((a, b) => MARKERS[b].open.length - MARKERS[a].open.length)
+
+    const link = linkStyles.find(l => l.start <= start && l.end >= end)
+    segments.push({ start, end, formats, linkHref: link?.meta?.href as string | undefined })
+  }
+
+  return segments
+}
+
+function renderSegments(
+  text: string,
+  segments: Array<{ start: number; end: number; formats: string[] }>
+): string {
+  let result = ''
+  let activeFormats: string[] = []
+
+  for (const seg of segments) {
+    const toClose = activeFormats.filter(f => !seg.formats.includes(f))
+
+    if (toClose.length > 0) {
+      // Close all active formats, then reopen those that should continue.
+      // This handles overlapping styles at the cost of `**...**` adjacency for bold.
+      for (const f of [...activeFormats].reverse()) result += MARKERS[f].close
+      for (const f of seg.formats) result += MARKERS[f].open
+    } else {
+      for (const f of seg.formats) {
+        if (!activeFormats.includes(f)) result += MARKERS[f].open
+      }
+    }
+
+    activeFormats = seg.formats
+    // Verbatim inside code spans; escape everywhere else
+    result += seg.formats.includes('code')
+      ? text.slice(seg.start, seg.end)
+      : escapeMarkdown(text.slice(seg.start, seg.end))
+  }
+
+  for (const f of [...activeFormats].reverse()) result += MARKERS[f].close
+
+  return result
+}
+
+function renderInline(text: string, styles: Style[]): string {
+  if (styles.length === 0) return escapeMarkdown(text)
+
+  const segments = buildSegments(text, styles)
+
+  let result = ''
+  let i = 0
+
+  while (i < segments.length) {
+    const seg = segments[i]
+
+    if (seg.linkHref !== undefined) {
+      const href = seg.linkHref
+      const linkSegs: typeof segments = []
+      while (i < segments.length && segments[i].linkHref === href) {
+        linkSegs.push(segments[i])
+        i++
+      }
+      result += `[${renderSegments(text, linkSegs)}](${href})`
+    } else {
+      const plainSegs: typeof segments = []
+      while (i < segments.length && segments[i].linkHref === undefined) {
+        plainSegs.push(segments[i])
+        i++
+      }
+      result += renderSegments(text, plainSegs)
+    }
+  }
+
+  return result
+}

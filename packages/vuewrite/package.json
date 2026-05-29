@@ -12,12 +12,23 @@
   },
   "main": "dist/vuewrite.js",
   "types": "dist/vuewrite.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/vuewrite.js",
+      "types": "./dist/vuewrite.d.ts"
+    },
+    "./markdown": {
+      "import": "./dist/markdown.js",
+      "types": "./dist/markdown.d.ts"
+    }
+  },
   "scripts": {
     "build": "vue-tsc && vite build",
     "dev": "vite build --watch"
   },
   "dependencies": {
-    "vue": "^3"
+    "vue": "^3",
+    "vuewrite-markdown": "workspace:*"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",

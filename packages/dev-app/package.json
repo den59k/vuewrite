@@ -13,6 +13,7 @@
     "vuewrite": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vueuse/core": "^10.10.0",
     "color2k": "^2.0.3",

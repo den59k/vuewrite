@@ -6,8 +6,10 @@ export default defineConfig({
   plugins: [vue(), dts({ rollupTypes: true })],
   build: {
     lib: {
-      entry: "./src/index.ts",
-      name: "vuewrite",
+      entry: {
+        vuewrite: "./src/index.ts",
+        markdown: "./src/markdown.ts",
+      },
       formats: [ "es" ],
     },
     minify: false,

@@ -1,0 +1,19 @@
+{
+  "name": "vuewrite-markdown",
+  "description": "Markdown ↔ Vuewrite JSON converter",
+  "private": false,
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "author": "den59k",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc --outDir dist --declaration --emitDeclarationOnly && vite build",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vitest": "^4.1.7"
+  }
+}
