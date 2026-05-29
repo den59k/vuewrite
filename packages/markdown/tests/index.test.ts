@@ -293,8 +293,8 @@ describe('ID preservation (previousBlocks)', () => {
   it('preserves IDs for unchanged blocks when one block changes', () => {
     const blocks1 = markdownToBlocks('Hello\nWorld')
     const blocks2 = markdownToBlocks('Hello\nWorld!', blocks1)
-    expect(blocks2[0].id).toBe(blocks1[0].id)      // "Hello" unchanged
-    expect(blocks2[1].id).not.toBe(blocks1[1].id)  // "World!" changed
+    expect(blocks2[0].id).toBe(blocks1[0].id)  // "Hello" unchanged
+    expect(blocks2[1].id).toBe(blocks1[1].id)  // "World!" is the last block, same type → ID kept
   })
 
   it('preserves IDs for surrounding blocks when a new block is inserted', () => {
@@ -310,6 +310,25 @@ describe('ID preservation (previousBlocks)', () => {
     const blocks2 = markdownToBlocks('Hello\nWorld', blocks1)
     expect(blocks2[0].id).toBe(blocks1[0].id)  // "Hello" preserved
     expect(blocks2[1].id).toBe(blocks1[2].id)  // "World" preserved
+  })
+
+  it('preserves last block ID when only its text changes', () => {
+    const blocks1 = markdownToBlocks('Hello\nWorld')
+    const blocks2 = markdownToBlocks('Hello\nWorld!', blocks1)
+    expect(blocks2[1].id).toBe(blocks1[1].id)  // last block text changed but ID kept
+  })
+
+  it('does not preserve last block ID when its type changes', () => {
+    const blocks1 = markdownToBlocks('Hello\nWorld')
+    const blocks2 = markdownToBlocks('Hello\n# World', blocks1)
+    expect(blocks2[1].id).not.toBe(blocks1[1].id)  // type changed: paragraph → h1
+  })
+
+  it('does not preserve old last block ID when a new block is appended', () => {
+    const blocks1 = markdownToBlocks('Hello')
+    const blocks2 = markdownToBlocks('Hello\nWorld', blocks1)
+    expect(blocks2[0].id).toBe(blocks1[0].id)   // "Hello" preserved by LCS
+    expect(blocks2[1].id).not.toBe(blocks1[0].id)  // "World" is a genuinely new block
   })
 
   it('preserves IDs across many block types', () => {
