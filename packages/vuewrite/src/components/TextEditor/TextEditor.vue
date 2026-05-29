@@ -36,7 +36,7 @@ const props = defineProps<{
   decorator?: Decorator,
   renderer?: Renderer,
   single?: boolean,
-  modelValue?: { text: string, styles?: Style[], type?: string }[] | string,
+  modelValue?: { id?: string; text: string, styles?: Style[], type?: string }[] | string,
   parser?: TextParser,
   styles?: Style[],
   autofocus?: boolean,
@@ -64,7 +64,7 @@ watch(() => props.modelValue, (newValue) => {
     }
     store.blocks.length = newValue.length
     for (let i = 0; i < newValue.length; i++) {
-      store.blocks[i] = { ...newValue[i], id: uid() }
+      store.blocks[i] = { ...newValue[i], id: newValue[i].id ?? uid() }
     }
   }
 }, { immediate: true })

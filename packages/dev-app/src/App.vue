@@ -127,7 +127,7 @@
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { TextEditor, TextEditorView, uid } from 'vuewrite'
 import type { TextEditorRef } from 'vuewrite'
-import { markdownToBlocks, blocksToMarkdown } from 'vuewrite/markdown'
+import { MarkdownParser, blocksToMarkdown } from 'vuewrite/markdown'
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
@@ -212,18 +212,20 @@ const textColor = computed({
 // ── Markdown panel ────────────────────────────────────────────────────────────
 
 const markdownContent = ref(blocksToMarkdown(text.value))
+const markdownParser = new MarkdownParser()
 let fromMarkdown = false
 
 watch(text, (blocks) => {
   if (fromMarkdown) return
   markdownContent.value = blocksToMarkdown(blocks)
+  markdownParser.sync(blocks)
 }, { deep: true })
 
 function onMarkdownInput(e: Event) {
   const md = (e.target as HTMLTextAreaElement).value
   markdownContent.value = md
   fromMarkdown = true
-  text.value = markdownToBlocks(md)
+  text.value = markdownParser.parse(md)
   nextTick(() => { fromMarkdown = false })
 }
 

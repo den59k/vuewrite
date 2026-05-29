@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { markdownToBlocks, blocksToMarkdown } from '../src/index.ts'
+import { markdownToBlocks, blocksToMarkdown, MarkdownParser } from '../src/index.ts'
 import type { Block } from '../src/index.ts'
 
 // Strip generated ids so snapshots don't care about them
@@ -231,5 +231,51 @@ describe('round-trip', () => {
     const once = blocksToMarkdown(markdownToBlocks(md))
     const twice = blocksToMarkdown(markdownToBlocks(once))
     expect(once).toBe(twice)
+  })
+})
+
+describe('MarkdownParser', () => {
+  it('preserves block ID when parsing identical markdown twice', () => {
+    const parser = new MarkdownParser()
+    const [first] = parser.parse('Hello')
+    const [second] = parser.parse('Hello')
+    expect(second.id).toBe(first.id)
+  })
+
+  it('preserves IDs for unchanged blocks when one block changes', () => {
+    const parser = new MarkdownParser()
+    const blocks1 = parser.parse('Hello\nWorld')
+    const blocks2 = parser.parse('Hello\nWorld!')
+    expect(blocks2[0].id).toBe(blocks1[0].id)       // "Hello" unchanged → same ID
+    expect(blocks2[1].id).not.toBe(blocks1[1].id)   // "World!" changed → new ID
+  })
+
+  it('preserves IDs for surrounding blocks when a new block is inserted', () => {
+    const parser = new MarkdownParser()
+    const blocks1 = parser.parse('Hello\nWorld')
+    const blocks2 = parser.parse('New\nHello\nWorld')
+    expect(blocks2[1].id).toBe(blocks1[0].id)       // "Hello" shifted down → same ID
+    expect(blocks2[2].id).toBe(blocks1[1].id)       // "World" shifted down → same ID
+    expect(blocks2[0].id).not.toBe(blocks1[0].id)  // "New" is inserted → new ID
+  })
+
+  it('preserves IDs for remaining blocks after a block is deleted', () => {
+    const parser = new MarkdownParser()
+    const blocks1 = parser.parse('Hello\nDeleteMe\nWorld')
+    const blocks2 = parser.parse('Hello\nWorld')
+    expect(blocks2[0].id).toBe(blocks1[0].id)  // "Hello" preserved
+    expect(blocks2[1].id).toBe(blocks1[2].id)  // "World" preserved
+  })
+
+  it('preserves IDs across many block types', () => {
+    const parser = new MarkdownParser()
+    const blocks1 = parser.parse('# Title\n\nPlain text\n\n- list item')
+    const blocks2 = parser.parse('# Title\n\nChanged text\n\n- list item')
+    // 5 blocks: heading, empty separator, paragraph, empty separator, list item
+    expect(blocks2[0].id).toBe(blocks1[0].id)      // heading unchanged
+    expect(blocks2[1].id).toBe(blocks1[1].id)      // empty separator unchanged
+    expect(blocks2[2].id).not.toBe(blocks1[2].id)  // paragraph changed
+    expect(blocks2[3].id).toBe(blocks1[3].id)      // empty separator unchanged
+    expect(blocks2[4].id).toBe(blocks1[4].id)      // list item unchanged
   })
 })
