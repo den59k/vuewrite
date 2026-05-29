@@ -18,6 +18,7 @@ const MARKERS: Record<string, { open: string; close: string }> = {
  *   { type: "ol" }               → 1. text  (auto-numbered per consecutive run)
  *   { type: "code", ... }        → ```\ntext\n```
  *   { type: undefined/default }  → text (or empty line)
+ *   { type: "custom" }          → ::: custom\ntext\n:::
  *
  * Inline style mapping:
  *   bold      → **text**
@@ -48,7 +49,16 @@ export function blocksToMarkdown(blocks: Block[]): string {
       case 'h3': lines.push(`### ${inline}`);olCounter = 0; break
       case 'li': lines.push(`- ${inline}`);  olCounter = 0; break
       case 'ol': lines.push(`${++olCounter}. ${inline}`); break
-      default:   lines.push(inline);         olCounter = 0; break
+      default:
+        if (block.type) {
+          lines.push(`:::${block.type}`)
+          lines.push(inline)
+          lines.push(':::')
+        } else {
+          lines.push(inline)
+        }
+        olCounter = 0
+        break
     }
   }
 

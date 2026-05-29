@@ -156,6 +156,7 @@ const blockTypeItems = [
   { id: 'h3',      title: 'Heading 3'    },
   { id: 'li',      title: 'List'         },
   { id: 'ol',      title: 'Numbered list'},
+  { id: 'callout', title: 'Callout'      },
 ]
 
 const blockType = computed({
@@ -255,6 +256,15 @@ const customBlocks = [
       popoverOpen.value = false
       textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
       textEditorRef.value!.insertBlock({ type: 'li', text: '' })
+    },
+  },
+  {
+    id: 'callout',
+    title: 'Callout',
+    onClick() {
+      popoverOpen.value = false
+      textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
+      textEditorRef.value!.insertBlock({ type: 'callout', text: '' })
     },
   },
   {
@@ -480,6 +490,13 @@ const onKeyDown = (e: KeyboardEvent) => {
 
   li.ol
     list-style-type: decimal
+
+  .callout
+    background: rgba(99, 179, 237, 0.1)
+    border-left: 3px solid rgba(99, 179, 237, 0.6)
+    border-radius: 0 6px 6px 0
+    padding: 8px 14px
+    margin: 2px 0
 
 .placeholder
   position: absolute

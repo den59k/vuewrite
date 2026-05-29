@@ -13,6 +13,7 @@ const uid = () => (++_counter).toString()
  *   - text        → { type: "li" }
  *   1. text       → { type: "ol" }
  *   ```...```     → { type: "code", editable: false }
+ *   ::: type ...  → { type: "type" }  (custom block, inline styles parsed)
  *   (empty line)  → { text: "" }
  *   plain text    → { type: undefined }
  *
@@ -31,6 +32,24 @@ export function markdownToBlocks(markdown: string): Block[] {
 
   while (i < lines.length) {
     const line = lines[i]
+
+    // Custom fenced block: ::: type
+    const customFenceMatch = line.match(/^:::\s*(\S+)/)
+    if (customFenceMatch) {
+      const type = customFenceMatch[1]
+      const bodyLines: string[] = []
+      i++
+      while (i < lines.length && lines[i].trim() !== ':::') {
+        bodyLines.push(lines[i])
+        i++
+      }
+      const { text, styles } = parseInline(bodyLines.join('\n'))
+      const block: Block = { id: uid(), text, type }
+      if (styles.length > 0) block.styles = styles
+      blocks.push(block)
+      i++ // skip closing :::
+      continue
+    }
 
     // Fenced code block
     if (line.startsWith('```')) {
