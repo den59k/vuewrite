@@ -2,7 +2,7 @@
   "name": "vuewrite",
   "description": "Rich Text Editor based on Vue3 reactivity",
   "private": false,
-  "version": "0.0.26",
+  "version": "0.0.28",
   "type": "module",
   "license": "MIT",
   "author": "den59k",
@@ -27,8 +27,7 @@
     "dev": "vite build --watch"
   },
   "dependencies": {
-    "vue": "^3",
-    "vuewrite-markdown": "workspace:*"
+    "vue": "^3"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
@@ -36,6 +35,7 @@
     "vite": "^5.2.0",
     "vite-plugin-dts": "^3.9.1",
     "vuesix": "^1.0.12",
+    "vuewrite-markdown": "workspace:*",
     "vue-tsc": "^2.0.6"
   },
   "files": ["dist"]
