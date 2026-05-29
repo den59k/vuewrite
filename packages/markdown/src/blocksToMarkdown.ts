@@ -28,6 +28,8 @@ const MARKERS: Record<string, { open: string; close: string }> = {
  *   link      → [text](href)
  *   color     → plain text (no Markdown equivalent)
  */
+const STANDARD_FIELDS = new Set(['id', 'text', 'type', 'styles', 'editable'])
+
 export function blocksToMarkdown(blocks: Block[]): string {
   const lines: string[] = []
   let olCounter = 0
@@ -37,6 +39,23 @@ export function blocksToMarkdown(blocks: Block[]): string {
       lines.push('```')
       lines.push(block.text)
       lines.push('```')
+      olCounter = 0
+      continue
+    }
+
+    // Blocks with extra (non-standard) props serialize as XML elements
+    const extraKeys = Object.keys(block).filter(k => !STANDARD_FIELDS.has(k))
+    if (block.type && extraKeys.length > 0) {
+      const attrStr = extraKeys.map(k => {
+        const v = block[k]
+        return v === true ? k : `${k}="${v}"`
+      }).join(' ')
+      const prefix = attrStr ? ` ${attrStr}` : ''
+      if (block.editable === false || !block.text) {
+        lines.push(`<${block.type}${prefix}/>`)
+      } else {
+        lines.push(`<${block.type}${prefix}>${renderInline(block.text, block.styles ?? [])}</${block.type}>`)
+      }
       olCounter = 0
       continue
     }

@@ -51,6 +51,28 @@ export function markdownToBlocks(markdown: string): Block[] {
       continue
     }
 
+    // XML element with closing tag: <tag attrs>text</tag>
+    const xmlPairedMatch = line.match(/^<(\w[\w-]*)(\s[^>]*)?>(.+)<\/\1>$/)
+    if (xmlPairedMatch) {
+      const attrs = parseAttributes(xmlPairedMatch[2] ?? '')
+      const { text, styles } = parseInline(xmlPairedMatch[3])
+      const block: Block = { id: uid(), text, type: xmlPairedMatch[1], ...attrs }
+      if (styles.length > 0) block.styles = styles
+      blocks.push(block)
+      i++
+      continue
+    }
+
+    // Self-closing or opening-only XML element: <tag attrs/> or <tag attrs>
+    const xmlSelfMatch = line.match(/^<(\w[\w-]*)(\s[^>]*)?\s*\/?>$/)
+    if (xmlSelfMatch) {
+      const attrs = parseAttributes(xmlSelfMatch[2] ?? '')
+      const block: Block = { id: uid(), text: '', type: xmlSelfMatch[1], editable: false, ...attrs }
+      blocks.push(block)
+      i++
+      continue
+    }
+
     // Fenced code block
     if (line.startsWith('```')) {
       const codeLines: string[] = []
@@ -121,6 +143,16 @@ export function markdownToBlocks(markdown: string): Block[] {
   }
 
   return blocks
+}
+
+function parseAttributes(attrStr: string): Record<string, string | true> {
+  const result: Record<string, string | true> = {}
+  const re = /(\w[\w-]*)(?:=(?:"([^"]*)"|'([^']*)'|(\S+)))?/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(attrStr)) !== null) {
+    result[m[1]] = m[2] ?? m[3] ?? m[4] ?? true
+  }
+  return result
 }
 
 function parseInline(md: string): { text: string; styles: Style[] } {

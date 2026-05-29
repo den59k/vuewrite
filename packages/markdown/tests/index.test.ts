@@ -140,6 +140,74 @@ describe('blocksToMarkdown', () => {
   })
 })
 
+describe('XML tags', () => {
+  describe('markdownToBlocks', () => {
+    it('parses a self-closing tag with attributes', () => {
+      expect(strip(markdownToBlocks('<img src="photo.jpg" alt="A photo"/>'))).toEqual([
+        { text: '', type: 'img', editable: false, src: 'photo.jpg', alt: 'A photo' },
+      ])
+    })
+
+    it('parses an opening-only tag as self-closing', () => {
+      expect(strip(markdownToBlocks('<img src="photo.jpg">'))).toEqual([
+        { text: '', type: 'img', editable: false, src: 'photo.jpg' },
+      ])
+    })
+
+    it('parses a paired tag with text content', () => {
+      expect(strip(markdownToBlocks('<h1>Hello</h1>'))).toEqual([
+        { text: 'Hello', type: 'h1' },
+      ])
+    })
+
+    it('parses inline styles inside paired tag content', () => {
+      const [block] = markdownToBlocks('<callout>Read **this** carefully</callout>')
+      expect(block.text).toBe('Read this carefully')
+      expect(block.styles).toEqual([{ start: 5, end: 9, style: 'bold' }])
+    })
+
+    it('parses paired tag with attributes', () => {
+      expect(strip(markdownToBlocks('<note class="warning">Watch out</note>'))).toEqual([
+        { text: 'Watch out', type: 'note', class: 'warning' },
+      ])
+    })
+
+    it('parses a boolean attribute (no value)', () => {
+      expect(strip(markdownToBlocks('<video autoplay src="clip.mp4"/>'))).toEqual([
+        { text: '', type: 'video', editable: false, autoplay: true, src: 'clip.mp4' },
+      ])
+    })
+  })
+
+  describe('blocksToMarkdown', () => {
+    it('serializes a self-closing block with extra props', () => {
+      const blocks: Block[] = [
+        { id: '1', text: '', type: 'img', editable: false, src: 'photo.jpg', alt: 'A photo' },
+      ]
+      expect(blocksToMarkdown(blocks)).toBe('<img src="photo.jpg" alt="A photo"/>')
+    })
+
+    it('serializes a paired block with extra props and text', () => {
+      const blocks: Block[] = [
+        { id: '1', text: 'Watch out', type: 'note', class: 'warning' },
+      ]
+      expect(blocksToMarkdown(blocks)).toBe('<note class="warning">Watch out</note>')
+    })
+  })
+
+  describe('round-trip', () => {
+    it('is stable for self-closing XML tags', () => {
+      const md = '<img src="photo.jpg" alt="A photo"/>'
+      expect(blocksToMarkdown(markdownToBlocks(md))).toBe(md)
+    })
+
+    it('is stable for paired XML tags', () => {
+      const md = '<note class="warning">Watch out</note>'
+      expect(blocksToMarkdown(markdownToBlocks(md))).toBe(md)
+    })
+  })
+})
+
 describe('round-trip', () => {
   it('is stable for a document with all block types', () => {
     const md = [
