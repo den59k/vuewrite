@@ -13,6 +13,10 @@
         <component :is="btn.icon" />
       </button>
       <VColorPicker v-model="textColor"/>
+      <a href="https://github.com/den59k/vuewrite" target="_blank" class="github-link">
+        <GithubIcon/>
+        GitHub
+      </a>
     </div>
 
     <div class="panels">
@@ -118,6 +122,7 @@ import VImageUploader from './components/VImageUploader.vue'
 import CodeEditor from './components/CodeEditor.vue'
 
 import { renderer, decorator, htmlParser, listCreator } from './editorConfig'
+import GithubIcon from './components/icons/GithubIcon.vue'
 
 // ── Core state ───────────────────────────────────────────────────────────────
 
@@ -352,6 +357,23 @@ const onKeyDown = (e: KeyboardEvent) => {
   .v-select
     width: 200px
     margin-right: 12px
+
+.github-link
+  display: flex
+  align-items: center
+  gap: 6px
+  color: white
+  text-decoration: none
+  font-size: 13px
+  padding: 0 12px
+  height: 48px
+  border-radius: 8px
+  margin-left: auto
+  opacity: 0.7
+
+  &:hover
+    background-color: rgba(255, 255, 255, 0.1)
+    opacity: 1
 
 .panels
   flex: 1 1 0
