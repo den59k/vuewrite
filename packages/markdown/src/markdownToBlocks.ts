@@ -60,13 +60,27 @@ function lcsIndices(oldKeys: string[], newKeys: string[]): Array<[number, number
  *   [text](url)   → link (meta: { href: url })
  *   ***text***    → bold + italic
  */
-export function markdownToBlocks(markdown: string, previousBlocks: Block[] = []): Block[] {
+export interface MarkdownToBlocksOptions {
+  /** When true, single newlines merge consecutive plain lines into one paragraph block,
+   *  and blank lines act as paragraph separators without producing empty blocks. */
+  softBreaks?: boolean
+}
+
+export function markdownToBlocks(
+  markdown: string,
+  previousBlocks: Block[] = [],
+  options: MarkdownToBlocksOptions = {},
+): Block[] {
+  const { softBreaks = false } = options
   const lines = markdown.split('\n')
   const blocks: Block[] = []
   let i = 0
+  let prevWasBlank = false
 
   while (i < lines.length) {
     const line = lines[i]
+    const wasBlank = prevWasBlank
+    prevWasBlank = (line === '')
 
     // Custom fenced block: ::: type
     const customFenceMatch = line.match(/^:::\s*(\S+)/)
@@ -156,9 +170,9 @@ export function markdownToBlocks(markdown: string, previousBlocks: Block[] = [])
       continue
     }
 
-    // Empty line → empty block (skip leading/trailing empties)
+    // Empty line → empty block (skip leading/trailing empties, and all if softBreaks)
     if (line === '') {
-      if (blocks.length > 0 && i < lines.length - 1) {
+      if (!softBreaks && blocks.length > 0 && i < lines.length - 1) {
         blocks.push({ id: uid(), text: '' })
       }
       i++
@@ -167,9 +181,21 @@ export function markdownToBlocks(markdown: string, previousBlocks: Block[] = [])
 
     // Plain paragraph
     const { text, styles } = parseInline(line)
-    const block: Block = { id: uid(), text }
-    if (styles.length > 0) block.styles = styles
-    blocks.push(block)
+    const lastBlock = blocks[blocks.length - 1]
+    if (softBreaks && !wasBlank && lastBlock && lastBlock.type === undefined && lastBlock.text !== '') {
+      const offset = lastBlock.text.length + 1
+      lastBlock.text += '\n' + text
+      if (styles.length > 0) {
+        if (!lastBlock.styles) lastBlock.styles = []
+        for (const s of styles) {
+          lastBlock.styles.push({ ...s, start: s.start + offset, end: s.end + offset })
+        }
+      }
+    } else {
+      const block: Block = { id: uid(), text }
+      if (styles.length > 0) block.styles = styles
+      blocks.push(block)
+    }
     i++
   }
 

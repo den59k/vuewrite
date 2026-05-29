@@ -224,7 +224,7 @@ function onMarkdownInput(e: Event) {
   const md = (e.target as HTMLTextAreaElement).value
   markdownContent.value = md
   fromMarkdown = true
-  text.value = markdownToBlocks(md, text.value)
+  text.value = markdownToBlocks(md, text.value, { softBreaks: true })
   nextTick(() => { fromMarkdown = false })
 }
 

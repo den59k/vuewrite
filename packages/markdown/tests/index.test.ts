@@ -79,6 +79,55 @@ describe('markdownToBlocks', () => {
   it('produces a single empty block for empty input', () => {
     expect(strip(markdownToBlocks(''))).toEqual([{ text: '' }])
   })
+
+  describe('softBreaks option', () => {
+    it('merges consecutive plain lines into one block with a newline', () => {
+      expect(strip(markdownToBlocks('Hello\nWorld', [], { softBreaks: true }))).toEqual([
+        { text: 'Hello\nWorld' },
+      ])
+    })
+
+    it('merges three consecutive plain lines', () => {
+      expect(strip(markdownToBlocks('A\nB\nC', [], { softBreaks: true }))).toEqual([
+        { text: 'A\nB\nC' },
+      ])
+    })
+
+    it('treats blank line as paragraph separator (no empty block)', () => {
+      expect(strip(markdownToBlocks('Hello\n\nWorld', [], { softBreaks: true }))).toEqual([
+        { text: 'Hello' },
+        { text: 'World' },
+      ])
+    })
+
+    it('does not merge across a blank line', () => {
+      expect(strip(markdownToBlocks('A\n\nB\nC', [], { softBreaks: true }))).toEqual([
+        { text: 'A' },
+        { text: 'B\nC' },
+      ])
+    })
+
+    it('does not merge plain text into a preceding non-paragraph block', () => {
+      expect(strip(markdownToBlocks('# Title\nPlain', [], { softBreaks: true }))).toEqual([
+        { text: 'Title', type: 'h1' },
+        { text: 'Plain' },
+      ])
+    })
+
+    it('adjusts inline style offsets when merging', () => {
+      const [block] = markdownToBlocks('Hello\n**world**', [], { softBreaks: true })
+      expect(block.text).toBe('Hello\nworld')
+      expect(block.styles).toEqual([{ start: 6, end: 11, style: 'bold' }])
+    })
+
+    it('does not affect default behavior when option is false', () => {
+      expect(strip(markdownToBlocks('Hello\n\nWorld', [], { softBreaks: false }))).toEqual([
+        { text: 'Hello' },
+        { text: '' },
+        { text: 'World' },
+      ])
+    })
+  })
 })
 
 describe('blocksToMarkdown', () => {
