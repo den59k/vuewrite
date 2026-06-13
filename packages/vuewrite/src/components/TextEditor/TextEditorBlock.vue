@@ -64,7 +64,7 @@ export default defineComponent({
           cacheNodes[0] = cacheEl.childNodes[0]
           cacheNodes[1] = cacheEl.childNodes[cacheEl.childNodes.length-1]
         } else {
-          cacheNodes.length === 0
+          cacheNodes.length = 0
         }
         emit("postrender")
       })

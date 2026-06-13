@@ -80,6 +80,10 @@ describe('markdownToBlocks', () => {
     expect(strip(markdownToBlocks(''))).toEqual([{ text: '' }])
   })
 
+  it('unescapes backslash-escaped markdown characters', () => {
+    expect(strip(markdownToBlocks('\\*not italic\\*'))).toEqual([{ text: '*not italic*' }])
+  })
+
   describe('softBreaks option', () => {
     it('merges consecutive plain lines into one block with a newline', () => {
       expect(strip(markdownToBlocks('Hello\nWorld', [], { softBreaks: true }))).toEqual([
