@@ -31,21 +31,34 @@ const MARKERS: Record<string, { open: string; close: string }> = {
  */
 const STANDARD_FIELDS = new Set(['id', 'text', 'type', 'styles', 'editable'])
 
-export function blocksToMarkdown(blocks: Block[]): string {
-  const lines: string[] = []
+export interface BlocksToMarkdownOptions {
+  /** When true, each block is emitted as a real paragraph — separated by a blank
+   *  line — while a "\n" inside a block stays a soft line break. This is the
+   *  inverse of markdownToBlocks({ softBreaks: true }). Consecutive list items
+   *  stay tight (single newline). When false (default), blocks are joined by a
+   *  single newline and empty blocks act as blank-line separators. */
+  softBreaks?: boolean
+}
+
+const isListType = (type?: string) => type === 'li' || type === 'ol'
+
+/** Markdown for a single block, paired with its type so the join step can decide
+ *  the separator (blank line between paragraphs, single newline between list items). */
+type RenderedBlock = { md: string; type?: string }
+
+export function blocksToMarkdown(blocks: Block[], options: BlocksToMarkdownOptions = {}): string {
+  const parts: RenderedBlock[] = []
   let olCounter = 0
 
   for (const block of blocks) {
     if (block.type === 'code') {
-      lines.push('```')
-      lines.push(block.text)
-      lines.push('```')
+      parts.push({ md: '```\n' + block.text + '\n```', type: 'code' })
       olCounter = 0
       continue
     }
 
     if (block.type === 'hr') {
-      lines.push('---')
+      parts.push({ md: '---', type: 'hr' })
       olCounter = 0
       continue
     }
@@ -59,9 +72,9 @@ export function blocksToMarkdown(blocks: Block[]): string {
       }).join(' ')
       const prefix = attrStr ? ` ${attrStr}` : ''
       if (block.editable === false || !block.text) {
-        lines.push(`<${block.type}${prefix}/>`)
+        parts.push({ md: `<${block.type}${prefix}/>`, type: block.type })
       } else {
-        lines.push(`<${block.type}${prefix}>${renderInline(block.text, block.styles ?? [])}</${block.type}>`)
+        parts.push({ md: `<${block.type}${prefix}>${renderInline(block.text, block.styles ?? [])}</${block.type}>`, type: block.type })
       }
       olCounter = 0
       continue
@@ -70,25 +83,36 @@ export function blocksToMarkdown(blocks: Block[]): string {
     const inline = renderInline(block.text, block.styles ?? [])
 
     switch (block.type) {
-      case 'h1': lines.push(`# ${inline}`);  olCounter = 0; break
-      case 'h2': lines.push(`## ${inline}`); olCounter = 0; break
-      case 'h3': lines.push(`### ${inline}`);olCounter = 0; break
-      case 'li': lines.push(`- ${inline}`);  olCounter = 0; break
-      case 'ol': lines.push(`${++olCounter}. ${inline}`); break
+      case 'h1': parts.push({ md: `# ${inline}`,  type: 'h1' }); olCounter = 0; break
+      case 'h2': parts.push({ md: `## ${inline}`, type: 'h2' }); olCounter = 0; break
+      case 'h3': parts.push({ md: `### ${inline}`, type: 'h3' }); olCounter = 0; break
+      case 'li': parts.push({ md: `- ${inline}`,  type: 'li' }); olCounter = 0; break
+      case 'ol': parts.push({ md: `${++olCounter}. ${inline}`, type: 'ol' }); break
       default:
         if (block.type) {
-          lines.push(`:::${block.type}`)
-          lines.push(inline)
-          lines.push(':::')
+          parts.push({ md: `:::${block.type}\n${inline}\n:::`, type: block.type })
         } else {
-          lines.push(inline)
+          parts.push({ md: inline, type: undefined })
         }
         olCounter = 0
         break
     }
   }
 
-  return lines.join('\n')
+  // Legacy mode: blocks joined by a single newline; empty blocks act as blank lines.
+  if (!options.softBreaks) return parts.map(p => p.md).join('\n')
+
+  // softBreaks mode: separate blocks are real paragraphs (blank line between),
+  // except consecutive list items which stay tight.
+  let result = ''
+  for (let i = 0; i < parts.length; i++) {
+    if (i > 0) {
+      const tight = isListType(parts[i - 1].type) && isListType(parts[i].type)
+      result += tight ? '\n' : '\n\n'
+    }
+    result += parts[i].md
+  }
+  return result
 }
 
 function escapeMarkdown(text: string): string {

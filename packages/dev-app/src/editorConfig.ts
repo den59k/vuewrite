@@ -20,6 +20,7 @@ export const htmlParser = (el: Element) => {
   if (el.tagName === 'H2') return 'h2'
   if (el.tagName === 'H3') return 'h3'
   if (el.tagName === 'LI') return 'li'
+  if (el.tagName === 'HR') return 'hr'
 }
 
 export const listCreator = (block: Block) => {

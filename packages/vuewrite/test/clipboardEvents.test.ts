@@ -56,6 +56,11 @@ describe('htmlToBlocks', () => {
     expect(parse('<ol><li>first</li></ol>')).toEqual([{ text: 'first', type: 'ol' }])
   })
 
+  it('lets htmlParser override the hr block type', () => {
+    const htmlParser = (el: Element) => (el.tagName === 'HR' ? 'divider' : undefined)
+    expect(parse('<hr>', htmlParser)).toEqual([{ text: '', type: 'divider', editable: false }])
+  })
+
   it('uses htmlParser to map element types', () => {
     const htmlParser = (el: Element) => (el.tagName === 'H1' ? 'h1' : undefined)
     expect(parse('<h1>Title</h1><p>body</p>', htmlParser)).toEqual([

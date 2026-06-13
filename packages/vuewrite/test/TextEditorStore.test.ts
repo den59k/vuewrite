@@ -105,6 +105,26 @@ describe('TextEditorStore — block structure', () => {
     expect(store.selection.anchor.offset).toBe(0)
   })
 
+  it('distinguishes a soft break (insertText "\\n") from a new paragraph (addNewLine)', () => {
+    // Shift+Enter → soft break: a "\n" stays inside one block.
+    setCaret(store, 0, 0)
+    store.insertText('ab')
+    setCaret(store, 0, 1)
+    store.insertText('\n')
+    expect(store.blocks).toHaveLength(1)
+    expect(store.blocks[0].text).toBe('a\nb')
+
+    // Enter → new paragraph: the block is split in two.
+    const other = new TextEditorStore()
+    other.selection.anchor = { blockId: other.blocks[0].id, offset: 0 }
+    other.selection.focus = { blockId: other.blocks[0].id, offset: 0 }
+    other.insertText('ab')
+    other.selection.anchor.offset = 1
+    other.selection.focus.offset = 1
+    other.addNewLine()
+    expect(other.blocks.map(b => b.text)).toEqual(['a', 'b'])
+  })
+
   it('inserts an empty block before the caret when at offset 0', () => {
     setCaret(store, 0, 0)
     store.insertText('hello')

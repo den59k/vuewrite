@@ -63,7 +63,7 @@ export const htmlToBlocks = (root: HTMLElement, htmlParser?: HtmlParser): Parsed
 
       if (tag === "HR") {
         flush()
-        out.push({ text: "", type: "hr", editable: false })
+        out.push({ text: "", type: htmlParser?.(el) ?? "hr", editable: false })
         continue
       }
 

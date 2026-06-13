@@ -212,12 +212,12 @@ const textColor = computed({
 
 // ── Markdown panel ────────────────────────────────────────────────────────────
 
-const markdownContent = ref(blocksToMarkdown(text.value))
+const markdownContent = ref(blocksToMarkdown(text.value, { softBreaks: true }))
 let fromMarkdown = false
 
 watch(text, (blocks) => {
   if (fromMarkdown) return
-  markdownContent.value = blocksToMarkdown(blocks)
+  markdownContent.value = blocksToMarkdown(blocks, { softBreaks: true })
 }, { deep: true })
 
 function onMarkdownInput(e: Event) {

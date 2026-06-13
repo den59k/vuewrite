@@ -322,6 +322,49 @@ describe('round-trip', () => {
   })
 })
 
+describe('blocksToMarkdown softBreaks (paragraphs vs line breaks)', () => {
+  it('separates paragraphs (blocks) with a blank line', () => {
+    expect(blocksToMarkdown([{ id: '1', text: 'A' }, { id: '2', text: 'B' }], { softBreaks: true })).toBe('A\n\nB')
+  })
+
+  it('keeps a soft line break inside a block as a single newline', () => {
+    expect(blocksToMarkdown([{ id: '1', text: 'A\nB' }], { softBreaks: true })).toBe('A\nB')
+  })
+
+  it('combines soft breaks within a block and blank lines between blocks', () => {
+    expect(blocksToMarkdown([{ id: '1', text: 'A\nB' }, { id: '2', text: 'C' }], { softBreaks: true })).toBe('A\nB\n\nC')
+  })
+
+  it('keeps consecutive list items tight', () => {
+    expect(blocksToMarkdown([{ id: '1', text: 'a', type: 'li' }, { id: '2', text: 'b', type: 'li' }], { softBreaks: true })).toBe('- a\n- b')
+  })
+
+  it('puts a blank line between a heading and a paragraph', () => {
+    expect(blocksToMarkdown([{ id: '1', text: 'T', type: 'h1' }, { id: '2', text: 'P' }], { softBreaks: true })).toBe('# T\n\nP')
+  })
+
+  it('default mode is unchanged (single-newline join)', () => {
+    expect(blocksToMarkdown([{ id: '1', text: 'A' }, { id: '2', text: 'B' }])).toBe('A\nB')
+  })
+})
+
+describe('round-trip with softBreaks', () => {
+  const cases = [
+    'A\n\nB',
+    'Line1\nLine2\n\nPara2',
+    '# Heading\n\nBody text',
+    '- a\n- b',
+    'para one\n\n- item\n- item2\n\npara two',
+  ]
+
+  for (const md of cases) {
+    it(`is stable: ${JSON.stringify(md)}`, () => {
+      const blocks = markdownToBlocks(md, [], { softBreaks: true })
+      expect(blocksToMarkdown(blocks, { softBreaks: true })).toBe(md)
+    })
+  }
+})
+
 describe('ID preservation (previousBlocks)', () => {
   it('preserves block ID for unchanged content', () => {
     const blocks1 = markdownToBlocks('Hello')
