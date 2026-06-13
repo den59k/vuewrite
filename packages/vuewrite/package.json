@@ -42,5 +42,5 @@
     "vuesix": "^1.0.12",
     "vuewrite-markdown": "workspace:*"
   },
-  "files": ["dist"]
+  "files": ["dist", "README.md", "API.md", "LICENSE"]
 }

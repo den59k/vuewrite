@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import TextEditorView from '../src/components/TextEditor/TextEditorView.vue'
+import TextViewer from '../src/components/TextEditor/TextViewer.vue'
 import { calcNodeByOffset, calcOffsetToNode } from '../src/utils/richEditorUtils'
 import type { Decorator, Renderer } from '../src/components/TextEditor/TextEditorStore'
 
@@ -21,13 +21,13 @@ const renderer: Renderer = (block) => {
   return undefined
 }
 
-const view = (props: Record<string, unknown>) => mount(TextEditorView, { props })
+const view = (props: Record<string, unknown>) => mount(TextViewer, { props })
 
 // First block element (the one carrying data-vw-block-id) of the rendered output.
 const blockEl = (wrapper: ReturnType<typeof view>, index = 0) =>
   wrapper.element.querySelectorAll('[data-vw-block-id]')[index] as HTMLElement
 
-describe('TextEditorView — rendering', () => {
+describe('TextViewer — rendering', () => {
   it('renders one element per block with its id', () => {
     const wrapper = view({ modelValue: [{ id: 'a', text: 'one' }, { id: 'b', text: 'two' }] })
     const blocks = wrapper.element.querySelectorAll('[data-vw-block-id]')
@@ -97,7 +97,7 @@ describe('TextEditorView — rendering', () => {
   })
 })
 
-describe('TextEditorView — list wrapping', () => {
+describe('TextViewer — list wrapping', () => {
   const listParser = (block: { type?: string }) =>
     block.type === 'li' ? 'ul' : block.type === 'ol' ? 'ol' : undefined
 
@@ -127,7 +127,7 @@ describe('TextEditorView — list wrapping', () => {
   })
 })
 
-describe('TextEditorView — offset mapping against the real rendered DOM', () => {
+describe('TextViewer — offset mapping against the real rendered DOM', () => {
   // Bridges richEditorUtils to actual render output: every offset must map to a
   // DOM node + local offset that round-trips back to the same global offset.
   const roundTrips = (el: HTMLElement, text: string) => {

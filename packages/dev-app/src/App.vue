@@ -74,7 +74,7 @@
 
       <div class="panel">
         <span class="panel-label">Preview</span>
-        <TextEditorView
+        <TextViewer
           :model-value="text"
           class="text-editor"
           :renderer="renderer"
@@ -90,7 +90,7 @@
           <template #placeholder>
             <div class="placeholder" :contenteditable="false">Enter text...</div>
           </template>
-        </TextEditorView>
+        </TextViewer>
       </div>
 
     </div>
@@ -125,7 +125,7 @@
 
 <script lang="ts" setup>
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { TextEditor, TextEditorView, uid } from 'vuewrite'
+import { TextEditor, TextViewer, uid } from 'vuewrite'
 import type { TextEditorRef } from 'vuewrite'
 import { markdownToBlocks, blocksToMarkdown } from 'vuewrite/markdown'
 import type { Block } from 'vuewrite/markdown'
