@@ -1,68 +1,67 @@
 # VueWrite
 
-VueWrite is another text editor that takes full advantage of Vue3's features. 
-It contains no pre-made styles and blocks as its main goal is complete customization and extension
+Another rich text editor, built on Vue 3 reactivity. It ships no styles and no block types — you decide how everything renders, and it handles the editing model, selection, history and clipboard. About 11 kB gzipped, Vue 3 the only dependency.
 
-## Demo
+[Demo](https://vuewrite.easix.ru) · [API reference](./API.md)
 
-You can watch the demo [here](https://vuewrite.easix.ru)
+## Install
+
+```sh
+npm install vuewrite
+```
+
+## How it works
+
+A document is a flat array of blocks. A block is plain `text` plus a list of style ranges:
+
+```ts
+{ id: "1", text: "Hello world", styles: [{ start: 0, end: 5, style: "bold" }] }
+```
+
+Nothing is styled out of the box. A `decorator` turns a style into a tag/class/attributes; a `renderer` turns a block into its element. Bold, headings, lists, links, code blocks, images — you map them however you want.
 
 ## Quickstart
 
 ```vue
 <template>
-  <TextEditor 
-    ref="textEditorRef" 
-    v-model="modelValue"
-    single
-    class="text-editor"
-    :decorator="decorator" 
-    @keydown="onKeyDown"
-  />
+  <TextEditor ref="editor" v-model="text" :decorator="decorator" class="editor" @keydown="onKeyDown" />
 </template>
 
-<script lang="ts">
-import { TextEditor, TextEditorRef } from 'vuewrite'
+<script setup lang="ts">
+import { ref } from 'vue'
+import { TextEditor } from 'vuewrite'
+import type { TextEditorRef, Style } from 'vuewrite'
 
-const textEditorRef = shallowRef<TextEditorRef>()
-const modelValue = shallowRef("")
+const editor = ref<TextEditorRef>()
+const text = ref([{ id: '1', text: '' }])
+
+const decorator = (style: Style) => ({ class: style.style })
 
 const onKeyDown = (e: KeyboardEvent) => {
-  if (!textEditorRef.value) return
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-    if (e.code === "KeyB") {
-      textEditorRef.value.toggleStyle("bold")
-    }
-    if (e.code === "KeyI") {
-      textEditorRef.value.toggleStyle("italic")
-    }
-    if (e.code === "KeyU") {
-      textEditorRef.value.toggleStyle("underline")
-    }
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyB') {
+    e.preventDefault()
+    editor.value?.toggleStyle('bold')
   }
 }
-
-const decorator = (style: Style) => {
-  if (style.style === 'bold' || style.style === "underline" || style.style === "italic") {
-    return { class: style.style }
-  }
-}
-
 </script>
 
-<style lang="css">
-.text-editor {
-  white-space: pre-wrap;
-}
-.text-editor .bold {
-  font-weight: 700
-}
-.text-editor .italic {
-  font-style: italic
-}
-.text-editor .underline {
-  text-decoration: underline
-}
+<style>
+.editor { white-space: pre-wrap; outline: none; }
+.editor .bold { font-weight: 700; }
 </style>
-
 ```
+
+## Components
+
+- `TextEditor` — the editable, contenteditable component (`v-model` of blocks, or a string in `single` mode).
+- `TextEditorView` — a read-only renderer for the same blocks, for previews and read paths.
+
+## Markdown
+
+`vuewrite/markdown` converts between Markdown and blocks:
+
+```ts
+import { markdownToBlocks, blocksToMarkdown } from 'vuewrite/markdown'
+```
+
+Full props, the editor ref, slots, types and the Markdown options are in the [API reference](./API.md).
