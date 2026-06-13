@@ -4,6 +4,7 @@ export const renderer = (block: Block) => {
   if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3' || block.type === 'li')
     return { tag: block.type }
   if (block.type === 'ol') return { tag: 'li', className: 'ol' }
+  if (block.type === 'hr') return { tag: 'hr' }
   if (block.type === 'callout') return { tag: 'div', className: 'callout' }
 }
 

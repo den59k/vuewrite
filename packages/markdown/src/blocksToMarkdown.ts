@@ -17,6 +17,7 @@ const MARKERS: Record<string, { open: string; close: string }> = {
  *   { type: "li" }               → - text
  *   { type: "ol" }               → 1. text  (auto-numbered per consecutive run)
  *   { type: "code", ... }        → ```\ntext\n```
+ *   { type: "hr" }               → ---
  *   { type: undefined/default }  → text (or empty line)
  *   { type: "custom" }          → ::: custom\ntext\n:::
  *
@@ -39,6 +40,12 @@ export function blocksToMarkdown(blocks: Block[]): string {
       lines.push('```')
       lines.push(block.text)
       lines.push('```')
+      olCounter = 0
+      continue
+    }
+
+    if (block.type === 'hr') {
+      lines.push('---')
       olCounter = 0
       continue
     }

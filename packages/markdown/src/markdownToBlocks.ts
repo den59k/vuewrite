@@ -13,6 +13,7 @@ const uid = () => (++_counter).toString()
  *   - text        → { type: "li" }
  *   1. text       → { type: "ol" }
  *   ```...```     → { type: "code", editable: false }
+ *   ---           → { type: "hr", editable: false }  (thematic break / separator)
  *   ::: type ...  → { type: "type" }  (custom block, inline styles parsed)
  *   (empty line)  → { text: "" }
  *   plain text    → { type: undefined }
@@ -87,6 +88,13 @@ function parseBlocks(lines: string[], softBreaks: boolean): Block[] {
       while (i < lines.length && !lines[i].startsWith('```')) codeLines.push(lines[i++])
       push({ text: codeLines.join('\n'), type: 'code', editable: false })
       i++ // skip closing ```
+      continue
+    }
+
+    // Thematic break / separator: --- (3 or more dashes)
+    if (/^-{3,}$/.test(line)) {
+      push({ text: '', type: 'hr', editable: false })
+      i++
       continue
     }
 

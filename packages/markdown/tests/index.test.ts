@@ -84,6 +84,26 @@ describe('markdownToBlocks', () => {
     expect(strip(markdownToBlocks('\\*not italic\\*'))).toEqual([{ text: '*not italic*' }])
   })
 
+  it('parses --- as a thematic break (hr) block', () => {
+    expect(strip(markdownToBlocks('---'))).toEqual([{ text: '', type: 'hr', editable: false }])
+  })
+
+  it('parses 3 or more dashes as a separator', () => {
+    expect(strip(markdownToBlocks('-----'))).toEqual([{ text: '', type: 'hr', editable: false }])
+  })
+
+  it('separates paragraphs around a thematic break', () => {
+    expect(strip(markdownToBlocks('above\n---\nbelow'))).toEqual([
+      { text: 'above' },
+      { text: '', type: 'hr', editable: false },
+      { text: 'below' },
+    ])
+  })
+
+  it('does not treat a list dash as a separator', () => {
+    expect(strip(markdownToBlocks('- item'))).toEqual([{ text: 'item', type: 'li' }])
+  })
+
   describe('softBreaks option', () => {
     it('merges consecutive plain lines into one block with a newline', () => {
       expect(strip(markdownToBlocks('Hello\nWorld', [], { softBreaks: true }))).toEqual([
@@ -167,6 +187,19 @@ describe('blocksToMarkdown', () => {
       { id: '1', text: 'let x = 1', type: 'code', editable: false },
     ]
     expect(blocksToMarkdown(blocks)).toBe('```\nlet x = 1\n```')
+  })
+
+  it('renders an hr block as ---', () => {
+    expect(blocksToMarkdown([{ id: '1', text: '', type: 'hr', editable: false }])).toBe('---')
+  })
+
+  it('resets ol counter after a thematic break', () => {
+    const blocks: Block[] = [
+      { id: '1', text: 'a', type: 'ol' },
+      { id: '2', text: '', type: 'hr', editable: false },
+      { id: '3', text: 'b', type: 'ol' },
+    ]
+    expect(blocksToMarkdown(blocks)).toBe('1. a\n---\n1. b')
   })
 
   it('renders bold style', () => {
@@ -270,6 +303,8 @@ describe('round-trip', () => {
       '',
       '- item one',
       '- item two',
+      '',
+      '---',
       '',
       '1. first',
       '2. second',
