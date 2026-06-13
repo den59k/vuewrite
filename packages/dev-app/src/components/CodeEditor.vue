@@ -12,10 +12,16 @@ import { ref, watch } from 'vue';
 const props = defineProps<{ modelValue?: string }>()
 const emit = defineEmits([ "update:modelValue", "newblockafter", "newblockbefore", "remove" ])
 
-const model = ref([{ text: "" }])
-if (props.modelValue) {
-  model.value = props.modelValue.split("\n").map(text => ({ text }))
-}
+const toLines = (value?: string) => value ? value.split("\n").map(text => ({ text })) : [{ text: "" }]
+const model = ref(toLines(props.modelValue))
+
+// Pull external changes (live preview, markdown import) into the editor. Skip the
+// echo of our own emits so the caret isn't reset while the user is typing.
+watch(() => props.modelValue, (value) => {
+  if ((value ?? "") === model.value.map(item => item.text).join("\n")) return
+  model.value = toLines(value)
+})
+
 watch(model, () => {
   emit("update:modelValue", model.value.map(item => item.text).join("\n"))
 }, { deep: true })
