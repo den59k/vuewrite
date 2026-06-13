@@ -32,14 +32,15 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.10.3",
     "typescript": "^5.2.2",
     "vite": "^5.2.0",
     "vite-plugin-dts": "^3.9.1",
-    "vuesix": "^1.0.12",
-    "vuewrite-markdown": "workspace:*",
-    "vue-tsc": "^2.0.6",
     "vitest": "^4.1.7",
-    "happy-dom": "^20.10.3"
+    "vue-tsc": "^2.0.6",
+    "vuesix": "^1.0.12",
+    "vuewrite-markdown": "workspace:*"
   },
   "files": ["dist"]
 }

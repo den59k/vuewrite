@@ -1,6 +1,6 @@
-import { TextEditorStore } from "./TextEditorStore"
+import { Style, TextEditorStore } from "./TextEditorStore"
 
-export type ParsedBlock = { text: string, type?: string, editable?: boolean }
+export type ParsedBlock = { text: string, type?: string, editable?: boolean, styles?: Style[] }
 
 type HtmlParser = (el: Element) => string | null | void
 
@@ -10,24 +10,74 @@ const BLOCK_TAGS = new Set([
   "LI", "BLOCKQUOTE", "PRE", "SECTION", "ARTICLE", "HEADER", "FOOTER",
 ])
 
+// Inline tags that map to an editor style name (the markdown package's vocabulary).
+const INLINE_STYLE_TAGS: Record<string, string> = {
+  B: "bold", STRONG: "bold",
+  I: "italic", EM: "italic",
+  U: "underline",
+  CODE: "code",
+}
+// Inverse mapping for serializing styles back to HTML on copy.
+const STYLE_TO_TAG: Record<string, string> = { bold: "b", italic: "i", underline: "u", code: "code" }
+
 const isContainerChild = (el: Element) =>
   BLOCK_TAGS.has(el.tagName) || el.tagName === "UL" || el.tagName === "OL" || el.tagName === "HR"
 
-/** Text content of a node, turning <br> into "\n". Collapses runs of HTML
- *  formatting whitespace to a single space unless `preserve` is set (e.g. <pre>). */
-const extractText = (node: Node, preserve: boolean): string => {
-  let out = ""
+const parseColor = (styleAttr: string | null): string | undefined => {
+  if (!styleAttr) return undefined
+  const match = styleAttr.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i)
+  return match ? match[1].trim() : undefined
+}
+
+/** Records the style(s) an inline element contributes over the [start, end) range. */
+const recordInlineStyles = (styles: Style[], el: HTMLElement, start: number, end: number) => {
+  if (end <= start) return
+  const name = INLINE_STYLE_TAGS[el.tagName]
+  if (name) styles.push({ start, end, style: name })
+  if (el.tagName === "A") {
+    const href = el.getAttribute("href")
+    styles.push(href ? { start, end, style: "link", meta: { href } } : { start, end, style: "link" })
+  }
+  const color = parseColor(el.getAttribute("style"))
+  if (color) styles.push({ start, end, style: "color", meta: { color } })
+}
+
+/** Appends a node's children into `acc`, turning <br> into "\n", collapsing HTML
+ *  formatting whitespace (unless `preserve`), and recording inline style ranges. */
+const append = (acc: { text: string, styles: Style[] }, node: Node, preserve: boolean) => {
   for (const child of node.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {
       const value = child.textContent ?? ""
-      out += preserve ? value : value.replace(/\s+/g, " ")
-    } else if (child.nodeType === Node.ELEMENT_NODE) {
-      const el = child as HTMLElement
-      if (el.tagName === "BR") out += "\n"
-      else out += extractText(el, preserve)
+      acc.text += preserve ? value : value.replace(/\s+/g, " ")
+      continue
     }
+    if (child.nodeType !== Node.ELEMENT_NODE) continue
+    const el = child as HTMLElement
+    if (el.tagName === "BR") { acc.text += "\n"; continue }
+    const start = acc.text.length
+    append(acc, el, preserve)
+    recordInlineStyles(acc.styles, el, start, acc.text.length)
   }
-  return out
+}
+
+/** Trims surrounding whitespace from a block's text and shifts/clamps its styles. */
+const trimWithStyles = (text: string, styles: Style[]): { text: string, styles: Style[] } => {
+  const leading = text.length - text.replace(/^\s+/, "").length
+  const trimmed = text.trim()
+  if (leading === 0 && trimmed.length === text.length) return { text, styles }
+  const adjusted: Style[] = []
+  for (const s of styles) {
+    const start = Math.max(0, s.start - leading)
+    const end = Math.min(trimmed.length, s.end - leading)
+    if (end > start) adjusted.push({ ...s, start, end })
+  }
+  return { text: trimmed, styles: adjusted }
+}
+
+const makeBlock = (result: { text: string, styles: Style[] }, type?: string): ParsedBlock => {
+  const block: ParsedBlock = type !== undefined ? { text: result.text, type } : { text: result.text }
+  if (result.styles.length) block.styles = result.styles
+  return block
 }
 
 /**
@@ -39,27 +89,29 @@ const extractText = (node: Node, preserve: boolean): string => {
  * - <hr> becomes an atomic { type: "hr", editable: false } block.
  * - <br> becomes a "\n" inside the current block's text.
  * - Loose text and inline elements (<span>, <b>, …) are folded into one block.
+ * - Inline tags (<b>/<i>/<u>/<code>/<a>/<span style="color">) become styles.
  */
 export const htmlToBlocks = (root: HTMLElement, htmlParser?: HtmlParser): ParsedBlock[] => {
   const out: ParsedBlock[] = []
 
   const walk = (node: Node) => {
-    let buffer = ""
+    let buffer = { text: "", styles: [] as Style[] }
     const flush = () => {
-      if (buffer.trim()) out.push({ text: buffer.trim() })
-      buffer = ""
+      const trimmed = trimWithStyles(buffer.text, buffer.styles)
+      if (trimmed.text) out.push(makeBlock(trimmed))
+      buffer = { text: "", styles: [] }
     }
 
     for (const child of node.childNodes) {
       if (child.nodeType === Node.TEXT_NODE) {
-        buffer += (child.textContent ?? "").replace(/\s+/g, " ")
+        buffer.text += (child.textContent ?? "").replace(/\s+/g, " ")
         continue
       }
       if (child.nodeType !== Node.ELEMENT_NODE) continue
       const el = child as HTMLElement
       const tag = el.tagName
 
-      if (tag === "BR") { buffer += "\n"; continue }
+      if (tag === "BR") { buffer.text += "\n"; continue }
 
       if (tag === "HR") {
         flush()
@@ -71,7 +123,9 @@ export const htmlToBlocks = (root: HTMLElement, htmlParser?: HtmlParser): Parsed
         flush()
         const defaultType = tag === "OL" ? "ol" : "li"
         for (const li of el.children) {
-          out.push({ text: extractText(li, false).trim(), type: htmlParser?.(li) ?? defaultType })
+          const acc = { text: "", styles: [] as Style[] }
+          append(acc, li, false)
+          out.push(makeBlock(trimWithStyles(acc.text, acc.styles), htmlParser?.(li) ?? defaultType))
         }
         continue
       }
@@ -82,20 +136,80 @@ export const htmlToBlocks = (root: HTMLElement, htmlParser?: HtmlParser): Parsed
           walk(el) // nested block structure — recurse instead of flattening
         } else {
           const preserve = tag === "PRE"
-          const text = extractText(el, preserve)
-          out.push({ text: preserve ? text : text.trim(), type: htmlParser?.(el) ?? undefined })
+          const acc = { text: "", styles: [] as Style[] }
+          append(acc, el, preserve)
+          const result = preserve ? acc : trimWithStyles(acc.text, acc.styles)
+          out.push(makeBlock(result, htmlParser?.(el) ?? undefined))
         }
         continue
       }
 
-      // Inline element — fold its text into the current paragraph.
-      buffer += extractText(el, false)
+      // Inline element — fold its styled text into the current paragraph.
+      const start = buffer.text.length
+      append(buffer, el, false)
+      recordInlineStyles(buffer.styles, el, start, buffer.text.length)
     }
 
     flush()
   }
 
   walk(root)
+  return out
+}
+
+const escapeText = (text: string) =>
+  text.replace(/[&<>]/g, c => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;")).replace(/\n/g, "<br>")
+
+const escapeAttr = (value: string) =>
+  value.replace(/[&<>"]/g, c => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&quot;"))
+
+const tagFor = (style: Style): { open: string, close: string } | null => {
+  if (style.style === "link") {
+    const href = (style.meta?.href ?? "") as string
+    return { open: href ? `<a href="${escapeAttr(href)}">` : "<a>", close: "</a>" }
+  }
+  if (style.style === "color") {
+    const color = (style.meta?.color ?? "") as string
+    return color ? { open: `<span style="color: ${escapeAttr(color)}">`, close: "</span>" } : null
+  }
+  const tag = STYLE_TO_TAG[style.style]
+  return tag ? { open: `<${tag}>`, close: `</${tag}>` } : null
+}
+
+/** Serializes text + styles to inline HTML (the inverse of the inline parsing above). */
+export const stylesToHtml = (text: string, styles?: Style[]): string => {
+  if (!styles || styles.length === 0) return escapeText(text)
+
+  const bounds = new Set<number>([0, text.length])
+  for (const s of styles) { bounds.add(s.start); bounds.add(s.end) }
+  const points = [...bounds].sort((a, b) => a - b)
+
+  let html = ""
+  for (let i = 0; i < points.length - 1; i++) {
+    const from = points[i]
+    const to = points[i + 1]
+    if (to <= from) continue
+    let chunk = escapeText(text.slice(from, to))
+    for (const s of styles) {
+      if (s.start <= from && s.end >= to) {
+        const wrap = tagFor(s)
+        if (wrap) chunk = wrap.open + chunk + wrap.close
+      }
+    }
+    html += chunk
+  }
+  return html
+}
+
+/** Extracts the styles overlapping [from, to) and rebases them to start at 0. */
+const sliceStyles = (styles: Style[] | undefined, from: number, to: number): Style[] => {
+  if (!styles) return []
+  const out: Style[] = []
+  for (const s of styles) {
+    const start = Math.max(s.start, from)
+    const end = Math.min(s.end, to)
+    if (end > start) out.push({ ...s, start: start - from, end: end - from })
+  }
   return out
 }
 
@@ -109,23 +223,31 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
     const [ start, end, startIndex, endIndex ] = store.startAndEnd
 
     if (startIndex === endIndex) {
-      const text = store.blocks[startIndex].text.slice(start.offset, end.offset)
+      const block = store.blocks[startIndex]
+      const text = block.text.slice(start.offset, end.offset)
+      const styles = sliceStyles(block.styles, start.offset, end.offset)
       return [
         new ClipboardItem({
+          "text/html":  new Blob([ stylesToHtml(text, styles) ], { type: "text/html" }),
           "text/plain": new Blob([ text ], { type: "text/plain" })
         })
       ]
     }
 
-    const startText = store.blocks[startIndex].text.slice(start.offset)
-    const endText = store.blocks[endIndex].text.slice(0, end.offset)
-
     const arr = [
-      { type: store.blocks[startIndex].type, text: startText },
-      ...store.blocks.slice(startIndex+1, endIndex),
-      { type: store.blocks[endIndex].type, text: endText },
+      {
+        type: store.blocks[startIndex].type,
+        text: store.blocks[startIndex].text.slice(start.offset),
+        styles: sliceStyles(store.blocks[startIndex].styles, start.offset, store.blocks[startIndex].text.length),
+      },
+      ...store.blocks.slice(startIndex + 1, endIndex).map(b => ({ type: b.type, text: b.text, styles: b.styles ?? [] })),
+      {
+        type: store.blocks[endIndex].type,
+        text: store.blocks[endIndex].text.slice(0, end.offset),
+        styles: sliceStyles(store.blocks[endIndex].styles, 0, end.offset),
+      },
     ]
-    const html = arr.map(item => item.type === "hr" ? "<hr>" : `<div>${item.text}</div>`).join("\n")
+    const html = arr.map(item => item.type === "hr" ? "<hr>" : `<div>${stylesToHtml(item.text, item.styles)}</div>`).join("\n")
     const text = arr.map(item => item.text).join("\n")
 
     return [
@@ -178,7 +300,19 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
         if (block.type !== undefined) store.currentBlock.type = block.type
         if (block.editable !== undefined) store.currentBlock.editable = block.editable
       }
-      if (block.text) insertMultilineText(block.text)
+      if (block.text) {
+        const at = store.selection.focus.offset
+        insertMultilineText(block.text)
+        // Re-attach the parsed styles, rebased to where the text landed. Skipped in
+        // preventMultiline mode, where a single block may be split across newlines.
+        const target = store.currentBlock
+        if (target && block.styles && block.styles.length && !props.preventMultiline) {
+          if (!target.styles) target.styles = []
+          for (const s of block.styles) {
+            target.styles.push({ ...s, start: s.start + at, end: s.end + at })
+          }
+        }
+      }
     })
 
     // Don't leave the caret stuck on a trailing non-editable block (e.g. <hr>).

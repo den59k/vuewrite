@@ -4,6 +4,8 @@
     contenteditable
     @beforeinput="store.onInput"
     @keydown="onKeyDown"
+    @compositionstart="store.startComposition()"
+    @compositionend="onCompositionEnd"
     @copy="onCopy"
     @paste="onPaste"
     @cut="onCut"
@@ -91,6 +93,9 @@ watch(() => store.blocks, () => {
 }, { deep: true })
 
 const onKeyDown = (e: KeyboardEvent) => {
+  // During IME composition keydowns are the IME's (e.g. Enter confirms a candidate,
+  // reported with isComposing/keyCode 229) — don't treat them as editor shortcuts.
+  if (e.isComposing || store.isComposing) return
   emit("keydown", e)
   if (e.defaultPrevented) return
   if (e.code === "Enter") {
@@ -120,6 +125,9 @@ const onKeyDown = (e: KeyboardEvent) => {
 
 let cachedSelection = {}
 const onSelectionChange = () => {
+  // Don't track DOM selection mid-composition: the IME moves the caret as it
+  // inserts, and we must keep the composition's start position intact.
+  if (store.isComposing) return
   const sel = window.getSelection()!
   const anchor = findParent(sel.anchorNode!, el => el.hasAttribute("data-vw-block-id") && el.parentElement === textEditorRef.value)
   if (anchor) {
@@ -167,6 +175,8 @@ const getNode = (blockId: string) => {
 }
 
 const applySelection = () => {
+  // Re-applying selection mid-composition would fight the IME's own caret.
+  if (store.isComposing) return
   if (!store.isFocused.value) {
     cachedSelection = JSON.parse(JSON.stringify(store.selection))
     return
@@ -208,6 +218,10 @@ onMounted(() => {
 
   store.history.push("setText")
 })
+
+const onCompositionEnd = (e: CompositionEvent) => {
+  store.endComposition(e.data ?? "")
+}
 
 const { onCut, onCopy, onPaste } = createClipboardEvents(store, props)
 

@@ -27,6 +27,10 @@ export class TextEditorStore {
   }
   isFocused = ref(false)
 
+  /** True while an IME composition is in progress (CJK, dead keys, mobile suggestions). */
+  isComposing = false
+  private compositionSelection: TextEditorSelection | null = null
+
   _currentBlock = computed(() => {
     if (this.selection.anchor.blockId !== this.selection.focus.blockId) return null
     return this.blocks.find(item => item.id === this.selection.anchor.blockId) ?? null
@@ -136,6 +140,14 @@ export class TextEditorStore {
   onInput (_e: Event) {
     const ev = _e as InputEvent
     if (ev.defaultPrevented) return
+
+    // While an IME composition is in progress the browser must own the DOM so the
+    // candidate window / accents / mobile suggestions work. We don't preventDefault
+    // these and reconcile the model in endComposition() instead.
+    if (this.isComposing || ev.inputType === "insertCompositionText" || ev.inputType === "deleteCompositionText") {
+      return
+    }
+
     ev.preventDefault()
 
     const collapsed = this.isCollapsed
@@ -180,6 +192,35 @@ export class TextEditorStore {
       this.insertText(ev.data!)
       this.history.push("insertText")
     }
+  }
+
+  /** Called on `compositionstart`: remember where composition begins so the
+   *  committed text can be applied there once the browser is done. */
+  startComposition() {
+    this.isComposing = true
+    this.compositionSelection = {
+      anchor: { ...this.selection.anchor },
+      focus: { ...this.selection.focus },
+    }
+  }
+
+  /** Called on `compositionend` with the committed text. The browser already
+   *  inserted it into the DOM during composition; we re-apply it through the
+   *  model (from the remembered start position) so the model — and the re-render
+   *  it triggers — become the source of truth again, preserving styles/offsets. */
+  endComposition(data: string) {
+    this.isComposing = false
+    const start = this.compositionSelection
+    this.compositionSelection = null
+    if (!start) return
+
+    Object.assign(this.selection.anchor, start.anchor)
+    Object.assign(this.selection.focus, start.focus)
+
+    const hadSelection = !this.isCollapsed
+    if (hadSelection) this.deleteSelected()
+    if (data) this.insertText(data)
+    if (data || hadSelection) this.history.push("insertText")
   }
 
   addNewLineBefore() {

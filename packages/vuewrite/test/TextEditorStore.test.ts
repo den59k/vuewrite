@@ -214,6 +214,63 @@ describe('TextEditorStore — styles', () => {
   })
 })
 
+describe('TextEditorStore — IME composition', () => {
+  let store: TextEditorStore
+  beforeEach(() => { store = new TextEditorStore() })
+
+  it('does not touch the model or preventDefault during composition input', () => {
+    let prevented = false
+    const ev = { inputType: 'insertCompositionText', data: 'ね', defaultPrevented: false, preventDefault() { prevented = true } }
+    setCaret(store, 0, 0)
+    store.onInput(ev as any)
+    expect(prevented).toBe(false)
+    expect(store.blocks[0].text).toBe('')
+  })
+
+  it('ignores regular input while a composition is active', () => {
+    setCaret(store, 0, 0)
+    store.startComposition()
+    let prevented = false
+    store.onInput({ inputType: 'insertText', data: 'x', defaultPrevented: false, preventDefault() { prevented = true } } as any)
+    expect(prevented).toBe(false)
+    expect(store.blocks[0].text).toBe('')
+  })
+
+  it('commits composed text at the start position on compositionend', () => {
+    setCaret(store, 0, 0)
+    store.insertText('ab')
+    setCaret(store, 0, 2)
+    store.startComposition()
+    expect(store.isComposing).toBe(true)
+    store.endComposition('ねこ')
+    expect(store.isComposing).toBe(false)
+    expect(store.blocks[0].text).toBe('abねこ')
+    expect(store.selection.focus.offset).toBe(4)
+  })
+
+  it('replaces a selection with the composed text', () => {
+    setCaret(store, 0, 0)
+    store.insertText('abc')
+    setRange(store, 0, 0, 0, 3)
+    store.startComposition()
+    store.endComposition('X')
+    expect(store.blocks[0].text).toBe('X')
+  })
+
+  it('a cancelled composition leaves the model and history untouched', () => {
+    setCaret(store, 0, 0)
+    store.insertText('ab')
+    store.history.push('setText')
+    const actionsBefore = store.history.actions.length
+    setCaret(store, 0, 2)
+    store.startComposition()
+    store.endComposition('') // cancelled — no committed text
+    expect(store.blocks[0].text).toBe('ab')
+    expect(store.isComposing).toBe(false)
+    expect(store.history.actions.length).toBe(actionsBefore)
+  })
+})
+
 describe('TextEditorStore — selection queries', () => {
   let store: TextEditorStore
   beforeEach(() => {
