@@ -1,10 +1,11 @@
 import type { Block, Style } from './types.ts'
 
 const MARKERS: Record<string, { open: string; close: string }> = {
-  bold:      { open: '**', close: '**' },
-  italic:    { open: '*',  close: '*'  },
-  underline: { open: '__', close: '__' },
-  code:      { open: '`',  close: '`'  },
+  bold:          { open: '**', close: '**' },
+  italic:        { open: '*',  close: '*'  },
+  underline:     { open: '__', close: '__' },
+  strikethrough: { open: '~~', close: '~~' },
+  code:          { open: '`',  close: '`'  },
 }
 
 /**
@@ -116,7 +117,7 @@ export function blocksToMarkdown(blocks: Block[], options: BlocksToMarkdownOptio
 }
 
 function escapeMarkdown(text: string): string {
-  return text.replace(/[\\*_`\[\]]/g, '\\$&')
+  return text.replace(/[\\*_`~\[\]]/g, '\\$&')
 }
 
 type Segment = { start: number; end: number; formats: string[]; linkHref?: string }

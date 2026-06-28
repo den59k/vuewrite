@@ -365,6 +365,128 @@ describe('round-trip with softBreaks', () => {
   }
 })
 
+describe('inline emphasis — flanking rules', () => {
+  const inline = (md: string) => {
+    const [block] = markdownToBlocks(md)
+    return { text: block.text, styles: block.styles ?? [] }
+  }
+
+  it('does not italicize spaced asterisks (2 * 3 * 4)', () => {
+    expect(inline('2 * 3 * 4')).toEqual({ text: '2 * 3 * 4', styles: [] })
+  })
+
+  it('does not italicize intraword underscores (snake_case_name)', () => {
+    expect(inline('snake_case_name')).toEqual({ text: 'snake_case_name', styles: [] })
+  })
+
+  it('does not italicize underscores inside an identifier list', () => {
+    expect(inline('use foo_bar and baz_qux here')).toEqual({ text: 'use foo_bar and baz_qux here', styles: [] })
+  })
+
+  it('still italicizes a word-bounded _emphasis_', () => {
+    const { text, styles } = inline('an _emphasized_ word')
+    expect(text).toBe('an emphasized word')
+    expect(styles).toEqual([{ start: 3, end: 13, style: 'italic' }])
+  })
+
+  it('does not emphasize a lone asterisk with surrounding spaces', () => {
+    expect(inline('a * b')).toEqual({ text: 'a * b', styles: [] })
+  })
+
+  it('keeps an unmatched delimiter literal', () => {
+    expect(inline('*unclosed')).toEqual({ text: '*unclosed', styles: [] })
+  })
+
+  it('parses bold adjacent to punctuation (**bold**!)', () => {
+    const { text, styles } = inline('**bold**!')
+    expect(text).toBe('bold!')
+    expect(styles).toEqual([{ start: 0, end: 4, style: 'bold' }])
+  })
+})
+
+describe('inline emphasis — nesting', () => {
+  it('nests italic inside bold', () => {
+    const [block] = markdownToBlocks('**bold _and italic_ end**')
+    expect(block.text).toBe('bold and italic end')
+    expect(block.styles).toEqual(
+      expect.arrayContaining([
+        { start: 0, end: 19, style: 'bold' },
+        { start: 5, end: 15, style: 'italic' },
+      ]),
+    )
+  })
+
+  it('parses styled text inside a link', () => {
+    const [block] = markdownToBlocks('[**bold** here](https://x.com)')
+    expect(block.text).toBe('bold here')
+    expect(block.styles).toEqual(
+      expect.arrayContaining([
+        { start: 0, end: 9, style: 'link', meta: { href: 'https://x.com' } },
+        { start: 0, end: 4, style: 'bold' },
+      ]),
+    )
+  })
+
+  it('drops a link title, keeping the destination', () => {
+    const [block] = markdownToBlocks('[x](https://x.com "Title")')
+    expect(block.styles).toEqual([{ start: 0, end: 1, style: 'link', meta: { href: 'https://x.com' } }])
+  })
+})
+
+describe('inline strikethrough (~~)', () => {
+  it('parses ~~struck~~', () => {
+    const [block] = markdownToBlocks('~~struck~~')
+    expect(block.text).toBe('struck')
+    expect(block.styles).toEqual([{ start: 0, end: 6, style: 'strikethrough' }])
+  })
+
+  it('leaves a single tilde literal', () => {
+    expect(strip(markdownToBlocks('a ~ b'))).toEqual([{ text: 'a ~ b' }])
+    expect(strip(markdownToBlocks('~solo~'))).toEqual([{ text: '~solo~' }])
+  })
+
+  it('serializes strikethrough back to ~~', () => {
+    const blocks: Block[] = [{ id: '1', text: 'gone', styles: [{ start: 0, end: 4, style: 'strikethrough' }] }]
+    expect(blocksToMarkdown(blocks)).toBe('~~gone~~')
+  })
+})
+
+describe('inline code spans — backtick fences', () => {
+  it('parses a multi-backtick span containing a backtick', () => {
+    const [block] = markdownToBlocks('use ``a ` b`` ok')
+    expect(block.text).toBe('use a ` b ok')
+    expect(block.styles).toEqual([{ start: 4, end: 9, style: 'code' }])
+  })
+
+  it('leaves an unclosed backtick literal', () => {
+    expect(strip(markdownToBlocks('a ` b'))).toEqual([{ text: 'a ` b' }])
+  })
+
+  it('does not parse emphasis inside a code span', () => {
+    const [block] = markdownToBlocks('`a * b`')
+    expect(block.text).toBe('a * b')
+    expect(block.styles).toEqual([{ start: 0, end: 5, style: 'code' }])
+  })
+})
+
+describe('round-trip — block text is stable for tricky inline content', () => {
+  const cases = [
+    'snake_case_name',
+    '2 * 3 * 4',
+    '~~struck~~ and **bold**',
+    'an _emph_ and `code` and [link](https://x.com)',
+    'price is 5 _ 10',
+  ]
+  for (const md of cases) {
+    it(`text survives blocks→md→blocks: ${JSON.stringify(md)}`, () => {
+      const first = markdownToBlocks(md)
+      const round = markdownToBlocks(blocksToMarkdown(first))
+      expect(round.map((b) => b.text)).toEqual(first.map((b) => b.text))
+      expect(round.map((b) => b.styles ?? [])).toEqual(first.map((b) => b.styles ?? []))
+    })
+  }
+})
+
 describe('ID preservation (previousBlocks)', () => {
   it('preserves block ID for unchanged content', () => {
     const blocks1 = markdownToBlocks('Hello')

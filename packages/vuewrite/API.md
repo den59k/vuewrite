@@ -113,4 +113,4 @@ blocksToMarkdown(blocks: Block[], options?: { softBreaks?: boolean }): string
 - `previousBlocks` — pass the result of a prior parse to reuse ids, so unchanged blocks keep stable keys across edits.
 - `softBreaks` — when `true`, a single newline is a soft break inside a block and blank lines separate paragraphs; `blocksToMarkdown` mirrors this (blank line between blocks, consecutive list items stay tight). Both default to `false`, where blocks join with a single newline and empty blocks act as blank lines.
 
-Supported syntax: `#`/`##`/`###` headings, `-`/`*` and `1.` lists, fenced ` ``` ` code, `---` divider, inline `**bold**` `*italic*` `__underline__` `` `code` `` `[text](url)`, `::: type … :::` custom blocks, and `<tag attrs>…</tag>` / `<tag/>` XML blocks.
+Supported syntax: `#`/`##`/`###` headings, `-`/`*` and `1.` lists, fenced ` ``` ` code, `---` divider, inline `**bold**` `*italic*` `__underline__` `~~strikethrough~~` `` `code` `` `[text](url)`, `::: type … :::` custom blocks, and `<tag attrs>…</tag>` / `<tag/>` XML blocks. Inline emphasis follows CommonMark flanking rules, so `2 * 3` and `snake_case` stay literal.

@@ -221,69 +221,204 @@ function lcsIndices(oldKeys: string[], newKeys: string[]): Array<[number, number
 
 // ── Inline parsing ────────────────────────────────────────────────────────────
 
-function parseInline(md: string): { text: string; styles: Style[] } {
-  let plainText = ''
-  const styles: Style[] = []
+// ── Inline emphasis (delimiter-stack with CommonMark flanking) ──────────────────
+// Emphasis runs (`*`, `_`, `~`) only open/close when they "flank" non-whitespace
+// per CommonMark's rules, so `2 * 3` and `snake_case` are left as plain text
+// instead of being mis-parsed as italics. Code spans and links bind tighter and
+// are resolved first (links recursively, so their text can carry its own styles).
+//
+// vuewrite's marker scheme is custom: `*`→italic, `**`→bold, `_`→italic,
+// `__`→underline, `~~`→strikethrough, `` ` ``→code, `[t](url)`→link.
 
-  function recurse(inner: string, extraStyles: string[], linkMeta?: Record<string, unknown>) {
-    const start = plainText.length
-    const result = parseInline(inner)
-    plainText += result.text
-    const end = plainText.length
+const ASCII_PUNCT = /[!-/:-@[-`{-~]/
 
-    for (const styleName of extraStyles) {
-      styles.push({ start, end, style: styleName, ...(linkMeta ? { meta: linkMeta } : {}) })
-    }
-    for (const s of result.styles) {
-      styles.push({ ...s, start: start + s.start, end: start + s.end })
-    }
+const isWs = (ch: string | undefined): boolean => ch === undefined || /\s/.test(ch)
+const isPunct = (ch: string | undefined): boolean => ch !== undefined && ASCII_PUNCT.test(ch)
+
+interface Delim {
+  char: string
+  /** Live [start, end) of the run's chars in the output buffer; shrinks as consumed. */
+  start: number
+  end: number
+  canOpen: boolean
+  canClose: boolean
+}
+
+/** Left/right-flanking test (with the intraword-underscore restriction for `_`). */
+function flanking(char: string, before: string | undefined, after: string | undefined): { canOpen: boolean; canClose: boolean } {
+  const beforeWs = isWs(before)
+  const afterWs = isWs(after)
+  const beforePunct = isPunct(before)
+  const afterPunct = isPunct(after)
+  const left = !afterWs && (!afterPunct || beforeWs || beforePunct)
+  const right = !beforeWs && (!beforePunct || afterWs || afterPunct)
+  if (char === '_') {
+    return { canOpen: left && (!right || beforePunct), canClose: right && (!left || afterPunct) }
   }
+  return { canOpen: left, canClose: right }
+}
+
+/** Style name + how many delimiter chars it consumes, for a `count`-long match. */
+function styleFor(char: string, count: number): { style: string; consume: number } {
+  if (char === '*') return count >= 2 ? { style: 'bold', consume: 2 } : { style: 'italic', consume: 1 }
+  if (char === '_') return count >= 2 ? { style: 'underline', consume: 2 } : { style: 'italic', consume: 1 }
+  return { style: 'strikethrough', consume: 2 } // '~' (GFM: `~~` only)
+}
+
+/** Match `[text](url "title")` at `i` (balanced brackets/parens); title is dropped. */
+function matchLink(md: string, i: number): { text: string; href: string; next: number } | null {
+  let depth = 0
+  let j = i
+  for (; j < md.length; j++) {
+    const c = md[j]
+    if (c === '\\') { j++; continue }
+    if (c === '[') depth++
+    else if (c === ']') { depth--; if (depth === 0) break }
+  }
+  if (md[j] !== ']' || md[j + 1] !== '(') return null
+  const text = md.slice(i + 1, j)
+
+  let k = j + 2
+  let paren = 1
+  let url = ''
+  for (; k < md.length; k++) {
+    const c = md[k]
+    if (c === '\\') { url += md[k + 1] ?? ''; k++; continue }
+    if (c === '(') paren++
+    else if (c === ')') { paren--; if (paren === 0) break }
+    url += c
+  }
+  if (md[k] !== ')') return null
+
+  // A space separates an (optional) title from the destination; keep only the dest.
+  const href = url.trim().split(/\s+/)[0] ?? ''
+  return { text, href, next: k + 1 }
+}
+
+function parseInline(md: string): { text: string; styles: Style[] } {
+  const out: string[] = []
+  const styles: Style[] = []
+  const delims: Delim[] = []
 
   let i = 0
   while (i < md.length) {
-    const rest = md.slice(i)
+    const ch = md[i]
 
-    // Bold + italic: ***text***
-    const boldItalicM = rest.match(/^\*\*\*([\s\S]*?)\*\*\*/)
-    if (boldItalicM) { recurse(boldItalicM[1], ['bold', 'italic']); i += boldItalicM[0].length; continue }
+    // Escaped character: \X → literal X (never a delimiter).
+    if (ch === '\\' && i + 1 < md.length) { out.push(md[i + 1]); i += 2; continue }
 
-    // Bold: **text**
-    const boldM = rest.match(/^\*\*([\s\S]*?)\*\*/)
-    if (boldM) { recurse(boldM[1], ['bold']); i += boldM[0].length; continue }
-
-    // Underline: __text__ (must come before single _ italic)
-    const underlineM = rest.match(/^__([\s\S]*?)__/)
-    if (underlineM) { recurse(underlineM[1], ['underline']); i += underlineM[0].length; continue }
-
-    // Italic: *text* or _text_
-    const italicAsteriskM = rest.match(/^\*([\s\S]*?)\*/)
-    if (italicAsteriskM) { recurse(italicAsteriskM[1], ['italic']); i += italicAsteriskM[0].length; continue }
-
-    const italicUnderscoreM = rest.match(/^_([\s\S]*?)_/)
-    if (italicUnderscoreM) { recurse(italicUnderscoreM[1], ['italic']); i += italicUnderscoreM[0].length; continue }
-
-    // Inline code: `text`
-    const codeM = rest.match(/^`([\s\S]*?)`/)
-    if (codeM) {
-      const start = plainText.length
-      plainText += codeM[1]
-      styles.push({ start, end: plainText.length, style: 'code' })
-      i += codeM[0].length
+    // Inline code: a run of N backticks closed by the next run of exactly N.
+    if (ch === '`') {
+      let n = 0
+      while (md[i + n] === '`') n++
+      const fence = '`'.repeat(n)
+      const close = md.indexOf(fence, i + n)
+      if (close !== -1) {
+        const start = out.length
+        for (const c of md.slice(i + n, close)) out.push(c)
+        styles.push({ start, end: out.length, style: 'code' })
+        i = close + n
+        continue
+      }
+      for (let k = 0; k < n; k++) out.push('`')
+      i += n
       continue
     }
 
-    // Link: [text](url)
-    const linkM = rest.match(/^\[([\s\S]*?)\]\(([\s\S]*?)\)/)
-    if (linkM) { recurse(linkM[1], ['link'], { href: linkM[2] }); i += linkM[0].length; continue }
+    // Link: [text](url) — text is parsed recursively so it can carry styles.
+    if (ch === '[') {
+      const link = matchLink(md, i)
+      if (link) {
+        const inner = parseInline(link.text)
+        const start = out.length
+        for (const c of inner.text) out.push(c)
+        const end = out.length
+        for (const s of inner.styles) styles.push({ ...s, start: s.start + start, end: s.end + start })
+        styles.push({ start, end, style: 'link', meta: { href: link.href } })
+        i = link.next
+        continue
+      }
+      out.push('[')
+      i++
+      continue
+    }
 
-    // Escaped character: \X → X
-    if (md[i] === '\\' && i + 1 < md.length) { plainText += md[i + 1]; i += 2; continue }
+    // Emphasis delimiter run.
+    if (ch === '*' || ch === '_' || ch === '~') {
+      let n = 0
+      while (md[i + n] === ch) n++
+      const { canOpen, canClose } = flanking(ch, i > 0 ? md[i - 1] : undefined, md[i + n])
+      const start = out.length
+      for (let k = 0; k < n; k++) out.push(ch)
+      delims.push({ char: ch, start, end: out.length, canOpen, canClose })
+      i += n
+      continue
+    }
 
-    plainText += md[i]
+    out.push(ch)
     i++
   }
 
-  return { text: plainText, styles }
+  const deletions = resolveEmphasis(delims, styles)
+  return applyDeletions(out, styles, deletions)
+}
+
+/** Pair openers/closers into styles; return the delimiter-char ranges to remove. */
+function resolveEmphasis(delims: Delim[], styles: Style[]): Array<[number, number]> {
+  const deletions: Array<[number, number]> = []
+  const len = (d: Delim): number => d.end - d.start
+
+  for (let ci = 0; ci < delims.length; ci++) {
+    const closer = delims[ci]
+    if (!closer.canClose || len(closer) === 0) continue
+
+    for (let oi = ci - 1; oi >= 0; oi--) {
+      const opener = delims[oi]
+      if (opener.char !== closer.char || !opener.canOpen || len(opener) === 0) continue
+      if (closer.char === '~' && (len(opener) < 2 || len(closer) < 2)) continue
+
+      // Emit styles from the outer edges inward until one side is exhausted.
+      while (len(opener) > 0 && len(closer) > 0 && !(closer.char === '~' && (len(opener) < 2 || len(closer) < 2))) {
+        const { style, consume } = styleFor(closer.char, Math.min(len(opener), len(closer)))
+        const take = Math.min(consume, len(opener), len(closer))
+        styles.push({ start: opener.end, end: closer.start, style })
+        deletions.push([opener.end - take, opener.end])
+        deletions.push([closer.start, closer.start + take])
+        opener.end -= take
+        closer.start += take
+      }
+
+      // Delimiters strictly between a matched pair can't cross it.
+      for (let m = oi + 1; m < ci; m++) {
+        delims[m].canOpen = false
+        delims[m].canClose = false
+      }
+      break
+    }
+  }
+  return deletions
+}
+
+/** Remove consumed delimiter chars and remap all style offsets through the gaps. */
+function applyDeletions(out: string[], styles: Style[], deletions: Array<[number, number]>): { text: string; styles: Style[] } {
+  if (deletions.length === 0) return { text: out.join(''), styles }
+
+  const removed = new Array<boolean>(out.length).fill(false)
+  for (const [a, b] of deletions) for (let k = a; k < b; k++) removed[k] = true
+
+  // shift[p] = number of removed chars before index p.
+  const shift = new Array<number>(out.length + 1)
+  let d = 0
+  for (let k = 0; k <= out.length; k++) {
+    shift[k] = d
+    if (k < out.length && removed[k]) d++
+  }
+
+  const text = out.filter((_, k) => !removed[k]).join('')
+  const mapped = styles
+    .map((s) => ({ ...s, start: s.start - shift[s.start], end: s.end - shift[s.end] }))
+    .filter((s) => s.end > s.start)
+  return { text, styles: mapped }
 }
 
 function parseAttributes(attrStr: string): Record<string, string | true> {
