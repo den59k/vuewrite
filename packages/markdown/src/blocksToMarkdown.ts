@@ -53,7 +53,8 @@ export function blocksToMarkdown(blocks: Block[], options: BlocksToMarkdownOptio
 
   for (const block of blocks) {
     if (block.type === 'code') {
-      parts.push({ md: '```\n' + block.text + '\n```', type: 'code' })
+      const lang = typeof block.lang === 'string' ? block.lang : ''
+      parts.push({ md: '```' + lang + '\n' + block.text + '\n```', type: 'code' })
       olCounter = 0
       continue
     }
@@ -74,6 +75,9 @@ export function blocksToMarkdown(blocks: Block[], options: BlocksToMarkdownOptio
       const prefix = attrStr ? ` ${attrStr}` : ''
       if (block.editable === false || !block.text) {
         parts.push({ md: `<${block.type}${prefix}/>`, type: block.type })
+      } else if (block.text.includes('\n')) {
+        // Multi-line body with attributes → a fenced block (XML pairs are one line).
+        parts.push({ md: `:::${block.type}${prefix}\n${renderInline(block.text, block.styles ?? [])}\n:::`, type: block.type })
       } else {
         parts.push({ md: `<${block.type}${prefix}>${renderInline(block.text, block.styles ?? [])}</${block.type}>`, type: block.type })
       }

@@ -294,6 +294,61 @@ describe('XML tags', () => {
   })
 })
 
+describe('code fence language', () => {
+  it('parses the info string into a `lang` prop', () => {
+    expect(strip(markdownToBlocks('```ts\nconst x = 1\n```'))).toEqual([
+      { text: 'const x = 1', type: 'code', editable: false, lang: 'ts' },
+    ])
+  })
+
+  it('omits `lang` for a bare fence', () => {
+    expect(strip(markdownToBlocks('```\nplain\n```'))).toEqual([
+      { text: 'plain', type: 'code', editable: false },
+    ])
+  })
+
+  it('serializes `lang` back onto the fence', () => {
+    const blocks: Block[] = [{ id: '1', text: 'a()', type: 'code', editable: false, lang: 'js' }]
+    expect(blocksToMarkdown(blocks)).toBe('```js\na()\n```')
+  })
+
+  it('round-trips a code block with a language', () => {
+    const md = '```python\nprint(1)\nprint(2)\n```'
+    expect(blocksToMarkdown(markdownToBlocks(md))).toBe(md)
+  })
+})
+
+describe('attributed fenced blocks (::: type attrs)', () => {
+  it('parses attributes after the type', () => {
+    expect(strip(markdownToBlocks(':::callout tone="warning"\nBe careful\n:::'))).toEqual([
+      { type: 'callout', tone: 'warning', text: 'Be careful' },
+    ])
+  })
+
+  it('parses a multi-line body with inline styles', () => {
+    const [block] = markdownToBlocks(':::callout tone="tip"\nUse **bold** here\nand a second line\n:::')
+    expect(block.type).toBe('callout')
+    expect(block.tone).toBe('tip')
+    expect(block.text).toBe('Use bold here\nand a second line')
+    expect(block.styles).toEqual([{ start: 4, end: 8, style: 'bold' }])
+  })
+
+  it('serializes a multi-line attributed block as a fence (not one-line XML)', () => {
+    const blocks: Block[] = [{ id: '1', text: 'one\ntwo', type: 'callout', tone: 'info' }]
+    expect(blocksToMarkdown(blocks)).toBe(':::callout tone="info"\none\ntwo\n:::')
+  })
+
+  it('keeps single-line attributed blocks as XML', () => {
+    const blocks: Block[] = [{ id: '1', text: 'short', type: 'callout', tone: 'info' }]
+    expect(blocksToMarkdown(blocks)).toBe('<callout tone="info">short</callout>')
+  })
+
+  it('round-trips a multi-line callout with a tone', () => {
+    const md = ':::callout tone="warning"\nLine one.\nLine two with `code`.\n:::'
+    expect(blocksToMarkdown(markdownToBlocks(md))).toBe(md)
+  })
+})
+
 describe('round-trip', () => {
   it('is stable for a document with all block types', () => {
     const md = [

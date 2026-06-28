@@ -54,13 +54,14 @@ function parseBlocks(lines: string[], softBreaks: boolean): Block[] {
     const wasBlank = prevWasBlank
     prevWasBlank = line === ''
 
-    // Custom fenced block: ::: type ... :::
-    const fenceMatch = line.match(/^:::\s*(\S+)/)
+    // Custom fenced block: ::: type [attrs] … ::: (multi-line body + attributes)
+    const fenceMatch = line.match(/^:::\s*(\S+)\s*(.*)$/)
     if (fenceMatch) {
+      const attrs = parseAttributes(fenceMatch[2] ?? '')
       const body: string[] = []
       i++
       while (i < lines.length && lines[i].trim() !== ':::') body.push(lines[i++])
-      push({ type: fenceMatch[1], ...withStyles(parseInline(body.join('\n'))) })
+      push({ type: fenceMatch[1], ...attrs, ...withStyles(parseInline(body.join('\n'))) })
       i++ // skip closing :::
       continue
     }
@@ -81,12 +82,13 @@ function parseBlocks(lines: string[], softBreaks: boolean): Block[] {
       continue
     }
 
-    // Fenced code block
+    // Fenced code block, with an optional language info string: ```ts
     if (line.startsWith('```')) {
+      const lang = line.slice(3).trim()
       const codeLines: string[] = []
       i++
       while (i < lines.length && !lines[i].startsWith('```')) codeLines.push(lines[i++])
-      push({ text: codeLines.join('\n'), type: 'code', editable: false })
+      push({ text: codeLines.join('\n'), type: 'code', editable: false, ...(lang ? { lang } : {}) })
       i++ // skip closing ```
       continue
     }
