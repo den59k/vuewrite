@@ -7,25 +7,36 @@
 - `TextEditor` — editable component
 - `TextViewer` — read-only renderer
 - `uid()` — incremental string id generator for new blocks
-- types: `Block`, `Style`, `Decorator`, `Renderer`, `TextParser`, `TextEditorRef`
+- types: `Block`, `Style`, `TableCell`, `TableAlign`, `Decorator`, `Renderer`, `TextParser`, `TextEditorRef`
 
 `vuewrite/markdown`
 
 - `markdownToBlocks`, `blocksToMarkdown`
-- types: `Block`, `Style`
+- types: `Block`, `Style`, `TableCell`, `TableAlign`
+
+`vuewrite/table` (opt-in, tree-shakable)
+
+- `TableEditor` — table editing UI for the editor's `#table` slot
+- `TableViewer` — static table rendering for the viewer's `#table` slot
+- `createTableBlock(rows?, cols?)` — build a ready-to-insert table block
+- types: `TableCell`, `TableAlign`
+- structural CSS: `import "vuewrite/style.css"`
 
 ## Types
 
 ```ts
 type Style = { start: number; end: number; style: string; meta?: any }
-type Block = { id: string; text: string; type?: string; styles?: Style[]; editable?: boolean }
+type Block = { id: string; text: string; type?: string; styles?: Style[]; editable?: boolean; [key: string]: unknown }
+type TableCell = { text: string; styles?: Style[] }
+type TableAlign = "left" | "center" | "right" | null
 type Decorator  = (style: Style) => (HTMLAttributes & { tag?: string }) | undefined
 type Renderer   = (block: Block) => (HTMLAttributes & { tag?: string }) | undefined
 type TextParser = (text: string) => Style[]
 ```
 
 - `Style` — an inline range `[start, end)` with a style name and optional `meta` (e.g. a link's `href`).
-- `Block` — one line/paragraph. `type` is your own label (`h1`, `li`, `code`, …). `editable: false` marks an atomic block (image, divider) the caret skips over.
+- `Block` — one line/paragraph. `type` is your own label (`h1`, `li`, `code`, …). `editable: false` marks an atomic block (image, divider, table) the caret skips over. The index signature holds custom props (an image's `image`, a table's `rows`); these are snapshotted by history and serialized by markdown/clipboard when a `type` knows how.
+- `TableCell` — one cell of a `table` block: rich `text` plus its inline `styles` (the same `Style` vocabulary).
 - `Decorator` — maps an active style to the element it renders as: `tag` (defaults to `span`) plus any attributes, `class`, `style`.
 - `Renderer` — maps a block to its container element (`tag` plus attributes).
 - `TextParser` — derives inline styles from text at render time (syntax highlighting, mentions). Not stored in the model.
@@ -113,4 +124,33 @@ blocksToMarkdown(blocks: Block[], options?: { softBreaks?: boolean }): string
 - `previousBlocks` — pass the result of a prior parse to reuse ids, so unchanged blocks keep stable keys across edits.
 - `softBreaks` — when `true`, a single newline is a soft break inside a block and blank lines separate paragraphs; `blocksToMarkdown` mirrors this (blank line between blocks, consecutive list items stay tight). Both default to `false`, where blocks join with a single newline and empty blocks act as blank lines.
 
-Supported syntax: `#`/`##`/`###` headings, `-`/`*` and `1.` lists, fenced ` ```lang ` code (the info string becomes a `lang` prop), `---` divider, inline `**bold**` `*italic*` `__underline__` `~~strikethrough~~` `` `code` `` `[text](url)`, `::: type key="val" … :::` custom blocks (attributes + a multi-line body), and `<tag attrs>…</tag>` / `<tag/>` XML blocks. Inline emphasis follows CommonMark flanking rules, so `2 * 3` and `snake_case` stay literal.
+Supported syntax: `#`/`##`/`###` headings, `-`/`*` and `1.` lists, fenced ` ```lang ` code (the info string becomes a `lang` prop), `---` divider, GFM `| … |` pipe tables (header row + delimiter row → a `table` block; rows must start with `|`), inline `**bold**` `*italic*` `__underline__` `~~strikethrough~~` `` `code` `` `[text](url)`, `::: type key="val" … :::` custom blocks (attributes + a multi-line body), and `<tag attrs>…</tag>` / `<tag/>` XML blocks. Inline emphasis follows CommonMark flanking rules, so `2 * 3` and `snake_case` stay literal.
+
+## Tables — `vuewrite/table`
+
+The core defines the table **data contract**; the editing UI ships as an opt-in, tree-shakable subpath export built purely on the public API.
+
+```ts
+// The table block (atomic — the outer editor treats it like an image):
+{ id, type: "table", editable: false, text: "", rows: TableCell[][], align?: ("left" | "center" | "right" | null)[] }
+```
+
+- `rows[r][c]` — row 0 is the header row. Cells reuse `TableCell` (`{ text, styles }`), so inline bold/italic/links work through the same decorator and markdown/clipboard paths.
+- `align` — optional per-column alignment; omitted when every column is default.
+- Producers keep rows equal-length; consumers should still read defensively.
+
+```ts
+import { TableEditor, TableViewer, createTableBlock } from 'vuewrite/table'
+
+editor.value?.insertBlock(createTableBlock(2, 2)) // 2×2 table, row 0 is the header
+```
+
+`<TableEditor>` — used inside the editor's `#table` slot. Props: `block` (the table block), `decorator?` (forwarded to cell editors), `editor?` (a `TextEditorRef` — when given, mutations push onto its history and deleting the table removes the block). Emits `change` (any mutation) and `delete`. Exposes `addRow` / `removeRow(r)` / `addColumn` / `removeColumn(c)` / `deleteTable` on its template ref for programmatic control. Each cell hosts a nested `<TextEditor single>` (events inside the table are isolated from the outer editor); Tab / Shift+Tab move between cells, Enter moves down (adding a row past the last), and Backspace in the first cell of an entirely empty table removes it.
+
+`<TableViewer>` — used inside the viewer's `#table` slot. Props: `block`, `decorator?`. Static, decorator-aware rendering of `rows`. Row 0 renders as `<thead>`/`<th>` (the editor also renders row 0 cells as `<th>`, so one selector themes both).
+
+Both ship only structural CSS, extracted to `dist/style.css` at build time — load it with `import "vuewrite/style.css"` and theme on top, like the rest of the library.
+
+### Clipboard
+
+Pasting a `<table>` (from Excel, Google Sheets/Docs or a web page) produces a `table` block; copying a selection that contains one writes a real `<table>` (`text/html`) and TSV (`text/plain`), so tables round-trip to spreadsheets.

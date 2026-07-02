@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import TextEditor from '../src/components/TextEditor/TextEditor.vue'
 import type { Decorator } from '../src/components/TextEditor/TextEditorStore'
+import { createTableBlock } from '../src/table'
 
 const decorator: Decorator = (style) => (style.style === 'bold' ? { tag: 'b' } : undefined)
 
@@ -59,5 +60,20 @@ describe('TextEditor (editable mount)', () => {
     await nextTick()
     await nextTick()
     expect(wrapper.emitted('update:modelValue')).toBeTruthy()
+  })
+
+  it('inserts a table as an atomic block and can remove it', async () => {
+    const wrapper = editor({ modelValue: [{ id: 'a', text: '' }] })
+    placeCaret(wrapper, 0, 0)
+    ;(wrapper.vm as any).insertBlock(createTableBlock(2, 2))
+    await nextTick()
+    // The table replaces the caret block; a trailing editable block is appended
+    // so the caret isn't stranded on the atomic table.
+    expect(blocks(wrapper)).toHaveLength(2)
+
+    placeCaret(wrapper, 0, 0) // caret on the atomic table block
+    ;(wrapper.vm as any).removeCurrentBlock()
+    await nextTick()
+    expect(blocks(wrapper)).toHaveLength(1)
   })
 })

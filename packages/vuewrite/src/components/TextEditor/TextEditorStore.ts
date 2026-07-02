@@ -3,7 +3,11 @@ import { clamp, isEqual } from "vuesix"
 import { TextEditorHistory } from "./TextEditorHistory"
 
 export type Style = { start: number, end: number, style: string, meta?: any }
-export type Block = { id: string, text: string, type?: string, styles?: Style[], editable?: boolean }
+/** A single table cell: rich text plus its inline styles (reuses the `Style` vocabulary). */
+export type TableCell = { text: string, styles?: Style[] }
+/** Per-column alignment of a table block (`null` = default). */
+export type TableAlign = "left" | "center" | "right" | null
+export type Block = { id: string, text: string, type?: string, styles?: Style[], editable?: boolean, [key: string]: unknown }
 export type Decorator = (style: Style) => HTMLAttributes & { tag?: string } | undefined
 export type Renderer = (block: Block) => HTMLAttributes & { tag?: string } | undefined
 export type TextEditorSelection = { anchor: { blockId: string, offset: number }, focus: { blockId: string, offset: number } }

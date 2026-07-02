@@ -56,6 +56,14 @@
               v-bind="props"
             />
           </template>
+          <template #table="{ props, block }">
+            <TableEditor
+              :block="block"
+              :decorator="decorator"
+              :editor="textEditorRef"
+              v-bind="props"
+            />
+          </template>
           <template #placeholder>
             <div class="placeholder" :contenteditable="false">Enter text...</div>
           </template>
@@ -86,6 +94,9 @@
           </template>
           <template #image="{ block }">
             <img :src="block.image?.src" style="max-width: 100%; max-height: 350px"/>
+          </template>
+          <template #table="{ block }">
+            <TableViewer :block="block" :decorator="decorator" />
           </template>
           <template #placeholder>
             <div class="placeholder" :contenteditable="false">Enter text...</div>
@@ -129,6 +140,7 @@ import { TextEditor, TextViewer, uid } from 'vuewrite'
 import type { TextEditorRef } from 'vuewrite'
 import { markdownToBlocks, blocksToMarkdown } from 'vuewrite/markdown'
 import type { Block } from 'vuewrite/markdown'
+import { TableEditor, TableViewer, createTableBlock } from 'vuewrite/table'
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
@@ -275,6 +287,15 @@ const customBlocks = [
       popoverOpen.value = false
       textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
       textEditorRef.value!.insertBlock({ type: 'image', editable: false })
+    },
+  },
+  {
+    id: 'table',
+    title: 'Table',
+    onClick() {
+      popoverOpen.value = false
+      textEditorRef.value!.selection.anchor.offset -= currentWord.value!.length
+      textEditorRef.value!.insertBlock(createTableBlock(2, 2))
     },
   },
 ]
@@ -498,6 +519,27 @@ const onKeyDown = (e: KeyboardEvent) => {
     border-radius: 0 6px 6px 0
     padding: 8px 14px
     margin: 2px 0
+
+  // ── Table theming (structural CSS ships with vuewrite/table) ──────────────
+
+  .vw-table
+    margin: 12px 0
+
+  .vw-table-cell
+    border-color: rgba(255, 255, 255, 0.15)
+
+  // Header row: both editor and viewer render row 0 cells as <th>.
+  th.vw-table-cell
+    font-weight: 600
+    background: rgba(255, 255, 255, 0.04)
+
+  .vw-table-btn
+    color: rgba(255, 255, 255, 0.7)
+    border-color: rgba(255, 255, 255, 0.2)
+
+    &.vw-table-btn-danger:hover
+      color: #FF6B6B
+      border-color: #FF6B6B
 
 .placeholder
   position: absolute

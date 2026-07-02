@@ -132,6 +132,67 @@ describe('htmlToBlocks — inline styles', () => {
   })
 })
 
+describe('htmlToBlocks — tables', () => {
+  it('parses a basic <table> into an atomic table block', () => {
+    const html = '<table><tr><th>H1</th><th>H2</th></tr><tr><td>a</td><td>b</td></tr></table>'
+    expect(parse(html)).toEqual([
+      {
+        type: 'table',
+        editable: false,
+        text: '',
+        rows: [
+          [{ text: 'H1' }, { text: 'H2' }],
+          [{ text: 'a' }, { text: 'b' }],
+        ],
+      },
+    ])
+  })
+
+  it('parses styled cells', () => {
+    const html = '<table><tr><td><b>bold</b></td><td><a href="http://x">link</a></td></tr></table>'
+    const rows = (parse(html)[0] as any).rows
+    expect(rows[0][0]).toEqual({ text: 'bold', styles: [{ start: 0, end: 4, style: 'bold' }] })
+    expect(rows[0][1]).toEqual({ text: 'link', styles: [{ start: 0, end: 4, style: 'link', meta: { href: 'http://x' } }] })
+  })
+
+  it('reads Excel/Sheets-style markup with <tbody> and cell attributes', () => {
+    const html =
+      '<table border="1"><tbody><tr><td style="width:80px">1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody></table>'
+    expect((parse(html)[0] as any).rows).toEqual([
+      [{ text: '1' }, { text: '2' }],
+      [{ text: '3' }, { text: '4' }],
+    ])
+  })
+
+  it('pads ragged rows to equal width', () => {
+    const html = '<table><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></table>'
+    expect((parse(html)[0] as any).rows).toEqual([
+      [{ text: 'a' }, { text: 'b' }],
+      [{ text: 'c' }, { text: '' }],
+    ])
+  })
+
+  it('flattens a nested table into its cell text', () => {
+    const html = '<table><tr><td>outer <table><tr><td>inner</td></tr></table></td></tr></table>'
+    expect((parse(html)[0] as any).rows).toEqual([[{ text: 'outer inner' }]])
+  })
+
+  it('produces no block at all for an empty <table>', () => {
+    expect(parse('<table></table>')).toEqual([])
+    expect(parse('<table><tr></tr></table>')).toEqual([])
+    expect(parse('<p>a</p><table></table><p>b</p>')).toEqual([{ text: 'a' }, { text: 'b' }])
+  })
+
+  it('reads column alignment from the first row (align attribute)', () => {
+    const html = '<table><tr><th align="center">H1</th><th align="right">H2</th></tr></table>'
+    expect((parse(html)[0] as any).align).toEqual(['center', 'right'])
+  })
+
+  it('omits align when no column declares one', () => {
+    expect((parse('<table><tr><td>a</td></tr></table>')[0] as any).align).toBeUndefined()
+  })
+})
+
 describe('stylesToHtml + round-trip', () => {
   it('serializes styles to inline tags', () => {
     expect(stylesToHtml('abc', [{ start: 0, end: 1, style: 'bold' }])).toBe('<b>a</b>bc')
@@ -231,5 +292,98 @@ describe('onPaste', () => {
     paste(store, { html: '<b>bold</b>' })
     expect(store.blocks[0].text).toBe('XYbold')
     expect(store.blocks[0].styles).toEqual([{ start: 2, end: 6, style: 'bold' }])
+  })
+
+  it('pastes a <table> as an atomic table block with rows', () => {
+    const store = new TextEditorStore()
+    paste(store, { html: '<table><tr><th>H</th></tr><tr><td>x</td></tr></table>' })
+    const table = store.blocks.find(b => b.type === 'table')!
+    expect(table.editable).toBe(false)
+    expect(table.rows).toEqual([[{ text: 'H' }], [{ text: 'x' }]])
+  })
+
+  it('preserves the text after the caret when pasting a table mid-paragraph', () => {
+    const store = new TextEditorStore()
+    store.blocks[0].text = 'hello world'
+    store.selection.anchor = { blockId: store.blocks[0].id, offset: 5 }
+    store.selection.focus = { blockId: store.blocks[0].id, offset: 5 }
+    paste(store, { html: '<table><tr><td>x</td></tr></table>' })
+    expect(store.blocks.map(b => ({ text: b.text, type: b.type }))).toEqual([
+      { text: 'hello', type: undefined },
+      { text: '', type: 'table' },
+      { text: ' world', type: undefined },
+    ])
+    // Caret lands on the surviving tail, not a fresh empty block.
+    expect(store.selection.anchor).toEqual({ blockId: store.blocks[2].id, offset: 0 })
+  })
+
+  it('round-trips column alignment through paste', () => {
+    const store = new TextEditorStore()
+    paste(store, { html: '<table><tr><th align="center">H</th></tr></table>' })
+    expect(store.blocks.find(b => b.type === 'table')!.align).toEqual(['center'])
+  })
+})
+
+describe('onCopy — tables', () => {
+  const withTableSelection = () => {
+    const store = new TextEditorStore()
+    store.blocks.splice(0, store.blocks.length,
+      { id: 'a', text: 'before' },
+      { id: 't', type: 'table', editable: false, text: '', rows: [[{ text: 'H1' }, { text: 'H2' }], [{ text: 'a' }, { text: 'b' }]] },
+      { id: 'c', text: 'after' },
+    )
+    store.selection.anchor = { blockId: 'a', offset: 0 }
+    store.selection.focus = { blockId: 'c', offset: 5 }
+    return store
+  }
+
+  const copy = async (store: TextEditorStore) => {
+    let written: any[] = []
+    const descriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { write: (items: any[]) => { written = items } }, configurable: true,
+    })
+    try {
+      createClipboardEvents(store, {}).onCopy({ defaultPrevented: false, preventDefault() {} } as any)
+    } finally {
+      if (descriptor) Object.defineProperty(navigator, 'clipboard', descriptor)
+    }
+    const item = written[0]
+    return {
+      html: await item.getType('text/html').then((b: Blob) => b.text()),
+      text: await item.getType('text/plain').then((b: Blob) => b.text()),
+    }
+  }
+
+  it('serializes a table in a multi-block selection as a real <table> (text/html)', async () => {
+    const { html } = await copy(withTableSelection())
+    expect(html).toContain('<table><thead><tr><th>H1</th><th>H2</th></tr></thead>')
+    expect(html).toContain('<tbody><tr><td>a</td><td>b</td></tr></tbody></table>')
+  })
+
+  it('serializes the table as TSV in text/plain', async () => {
+    const { text } = await copy(withTableSelection())
+    expect(text).toBe(['before', 'H1\tH2\na\tb', 'after'].join('\n'))
+  })
+
+  it('emits align attributes for an aligned table', async () => {
+    const store = new TextEditorStore()
+    store.blocks.splice(0, store.blocks.length,
+      { id: 't', type: 'table', editable: false, text: '', rows: [[{ text: 'H' }]], align: ['center'] },
+    )
+    store.selection.anchor = { blockId: 't', offset: 0 }
+    store.selection.focus = { blockId: 't', offset: 0 }
+    const { html } = await copy(store)
+    expect(html).toContain('<th align="center">H</th>')
+  })
+
+  it('copies a non-table block with its own `rows` array prop as plain text (no crash)', async () => {
+    const store = new TextEditorStore()
+    store.blocks.splice(0, store.blocks.length, { id: 'p', type: 'poll', text: 'vote', rows: [10, 20] })
+    store.selection.anchor = { blockId: 'p', offset: 0 }
+    store.selection.focus = { blockId: 'p', offset: 4 }
+    const { html, text } = await copy(store)
+    expect(text).toBe('vote')
+    expect(html).not.toContain('<table')
   })
 })

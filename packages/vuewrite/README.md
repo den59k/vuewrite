@@ -58,10 +58,19 @@ const onKeyDown = (e: KeyboardEvent) => {
 
 ## Markdown
 
-`vuewrite/markdown` converts between Markdown and blocks:
+`vuewrite/markdown` converts between Markdown and blocks (headings, lists, code, dividers, GFM pipe tables, inline styles, custom blocks):
 
 ```ts
 import { markdownToBlocks, blocksToMarkdown } from 'vuewrite/markdown'
+```
+
+## Tables
+
+`vuewrite/table` is an opt-in, tree-shakable entry with the table editing UI — drop `TableEditor`/`TableViewer` into the `#table` slot and insert one with `createTableBlock()`. The core owns the table data contract (so markdown and clipboard interop for free); pasting from and copying to spreadsheets round-trips.
+
+```ts
+import { TableEditor, TableViewer, createTableBlock } from 'vuewrite/table'
+import 'vuewrite/style.css' // structural table CSS — theme on top
 ```
 
 Full props, the editor ref, slots, types and the Markdown options are in the [API reference](./API.md).

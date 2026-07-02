@@ -1,4 +1,4 @@
-import type { Block, Style } from './types.ts'
+import type { Block, Style, TableAlign, TableCell } from './types.ts'
 
 const MARKERS: Record<string, { open: string; close: string }> = {
   bold:          { open: '**', close: '**' },
@@ -19,6 +19,7 @@ const MARKERS: Record<string, { open: string; close: string }> = {
  *   { type: "ol" }               → 1. text  (auto-numbered per consecutive run)
  *   { type: "code", ... }        → ```\ntext\n```
  *   { type: "hr" }               → ---
+ *   { type: "table", rows, align } → | a | b |\n| - | - |\n… (GFM pipe table)
  *   { type: undefined/default }  → text (or empty line)
  *   { type: "custom" }          → ::: custom\ntext\n:::
  *
@@ -61,6 +62,12 @@ export function blocksToMarkdown(blocks: Block[], options: BlocksToMarkdownOptio
 
     if (block.type === 'hr') {
       parts.push({ md: '---', type: 'hr' })
+      olCounter = 0
+      continue
+    }
+
+    if (block.type === 'table' && Array.isArray(block.rows)) {
+      parts.push({ md: renderTable(block.rows as TableCell[][], block.align as TableAlign[] | undefined), type: 'table' })
       olCounter = 0
       continue
     }
@@ -122,6 +129,32 @@ export function blocksToMarkdown(blocks: Block[], options: BlocksToMarkdownOptio
 
 function escapeMarkdown(text: string): string {
   return text.replace(/[\\*_`~\[\]]/g, '\\$&')
+}
+
+function delimiterFor(align: TableAlign | undefined): string {
+  if (align === 'left') return ':---'
+  if (align === 'right') return '---:'
+  if (align === 'center') return ':---:'
+  return '---'
+}
+
+/** Serializes a table block to a GFM pipe table. Row 0 is the header; the
+ *  delimiter row is derived from `align`. Inside a cell, `|` is escaped and a
+ *  hard newline becomes `<br>` (a table cell is a single line). A degenerate
+ *  table (no rows/cells) still emits one column so the output re-parses as a table. */
+function renderTable(rows: TableCell[][], align: TableAlign[] = []): string {
+  const cols = Math.max(1, rows.reduce((max, row) => Math.max(max, row.length), 0))
+  const cell = (c: TableCell | undefined): string =>
+    (c ? renderInline(c.text ?? '', c.styles ?? []) : '').replace(/\|/g, '\\|').replace(/\n/g, '<br>')
+  const line = (cells: string[]) => `| ${cells.join(' | ')} |`
+
+  const out: string[] = []
+  out.push(line(Array.from({ length: cols }, (_, c) => cell(rows[0]?.[c]))))
+  out.push(line(Array.from({ length: cols }, (_, c) => delimiterFor(align[c]))))
+  for (let r = 1; r < rows.length; r++) {
+    out.push(line(Array.from({ length: cols }, (_, c) => cell(rows[r][c]))))
+  }
+  return out.join('\n')
 }
 
 type Segment = { start: number; end: number; formats: string[]; linkHref?: string }

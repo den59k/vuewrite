@@ -1,4 +1,4 @@
-import type { Block, Style } from './types.ts'
+import type { Block, Style, TableAlign, TableCell } from './types.ts'
 
 let _counter = 0
 const uid = () => (++_counter).toString()
@@ -14,6 +14,8 @@ const uid = () => (++_counter).toString()
  *   1. text       → { type: "ol" }
  *   ```...```     → { type: "code", editable: false }
  *   ---           → { type: "hr", editable: false }  (thematic break / separator)
+ *   | a | b |     → { type: "table", editable: false, rows, align? }  (GFM pipe table;
+ *   | - | - |         header row + delimiter row, row 0 is the header)
  *   ::: type ...  → { type: "type" }  (custom block, inline styles parsed)
  *   (empty line)  → { text: "" }
  *   plain text    → { type: undefined }
@@ -93,6 +95,29 @@ function parseBlocks(lines: string[], softBreaks: boolean): Block[] {
       continue
     }
 
+    // GFM pipe table: a `|`-prefixed header row followed by a delimiter row
+    // (| --- | :-: |). Requiring the leading pipe keeps headings and list items
+    // containing a pipe ('# a | b') out of table detection, and matches what
+    // blocksToMarkdown emits, so tables always round-trip.
+    const delimCells = line.startsWith('|') && lines[i + 1]?.startsWith('|')
+      ? delimiterCells(lines[i + 1]) : null
+    if (delimCells) {
+      const headerCells = splitTableRow(line)
+      const cols = headerCells.length
+      const align = parseAlign(delimCells, cols)
+      const rows: TableCell[][] = [normalizeRow(headerCells, cols)]
+      i += 2
+      // Body rows are `|`-prefixed lines — except one followed by a delimiter row,
+      // which is the next table's header (so adjacent tables don't merge).
+      while (i < lines.length && lines[i].startsWith('|')) {
+        if (i + 1 < lines.length && delimiterCells(lines[i + 1]) !== null) break
+        rows.push(normalizeRow(splitTableRow(lines[i]), cols))
+        i++
+      }
+      push({ type: 'table', editable: false, text: '', rows, ...(align ? { align } : {}) })
+      continue
+    }
+
     // Thematic break / separator: --- (3 or more dashes)
     if (/^-{3,}$/.test(line)) {
       push({ text: '', type: 'hr', editable: false })
@@ -159,6 +184,67 @@ function appendToLastParagraph(block: Block, { text, styles }: InlineParsed) {
     if (!block.styles) block.styles = []
     for (const s of styles) block.styles.push({ ...s, start: s.start + offset, end: s.end + offset })
   }
+}
+
+// ── GFM tables ──────────────────────────────────────────────────────────────
+
+function hasUnescapedPipe(line: string): boolean {
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === '\\') { i++; continue }
+    if (line[i] === '|') return true
+  }
+  return false
+}
+
+/** Splits a table row on unescaped `|`, dropping the empty cells produced by an
+ *  optional leading/trailing pipe. Cells are trimmed; `\|` is left for the cell's
+ *  inline parser to turn into a literal pipe. */
+function splitTableRow(line: string): string[] {
+  const cells: string[] = []
+  let cur = ''
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '\\' && i + 1 < line.length) { cur += ch + line[i + 1]; i += 1; continue }
+    if (ch === '|') { cells.push(cur); cur = ''; continue }
+    cur += ch
+  }
+  cells.push(cur)
+  if (cells.length > 1 && cells[0].trim() === '') cells.shift()
+  if (cells.length > 1 && cells[cells.length - 1].trim() === '') cells.pop()
+  return cells.map(c => c.trim())
+}
+
+/** Splits a delimiter row (`| --- | :-: | -: |` — every cell dashes with optional
+ *  colons) into its cells, or returns null when the line isn't one. */
+function delimiterCells(line: string): string[] | null {
+  if (!hasUnescapedPipe(line)) return null
+  const cells = splitTableRow(line)
+  return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c)) ? cells : null
+}
+
+/** Turns delimiter cells into an alignment array, or null when all are default. */
+function parseAlign(delimCells: string[], cols: number): TableAlign[] | null {
+  const align: TableAlign[] = []
+  for (let c = 0; c < cols; c++) {
+    const cell = delimCells[c] ?? ''
+    const left = cell.startsWith(':')
+    const right = cell.endsWith(':')
+    align.push(left && right ? 'center' : right ? 'right' : left ? 'left' : null)
+  }
+  return align.some(a => a !== null) ? align : null
+}
+
+/** Pads/truncates a parsed row to `cols` cells (GFM ragged-row behavior). */
+function normalizeRow(cells: string[], cols: number): TableCell[] {
+  const out: TableCell[] = []
+  for (let c = 0; c < cols; c++) out.push(parseCell(cells[c] ?? ''))
+  return out
+}
+
+/** Parses one cell's text: `<br>` → hard newline, then the shared inline parser. */
+function parseCell(raw: string): TableCell {
+  const { text, styles } = parseInline(raw.replace(/<br\s*\/?>/gi, '\n'))
+  return styles.length > 0 ? { text, styles } : { text }
 }
 
 // ── ID reconciliation ─────────────────────────────────────────────────────────

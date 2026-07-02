@@ -127,6 +127,86 @@ describe('TextEditorHistory', () => {
     expect(store.blocks[0].styles).toEqual([{ start: 0, end: 5, style: 'bold', meta: undefined }])
   })
 
+  it('undoes and redoes a mutation to a custom block prop (e.g. table rows)', () => {
+    const block = store.blocks[0]
+    block.type = 'table'
+    block.editable = false
+    block.rows = [[{ text: 'a' }], [{ text: 'b' }]]
+    store.history.push('setText')
+
+    // Structural table mutation: add a row, then snapshot.
+    ;(block.rows as unknown[]).push([{ text: 'c' }])
+    store.history.push('setText')
+    expect((store.blocks[0].rows as unknown[]).length).toBe(3)
+
+    store.history.undo()
+    expect((store.blocks[0].rows as unknown[]).length).toBe(2)
+
+    store.history.redo()
+    expect((store.blocks[0].rows as unknown[]).length).toBe(3)
+  })
+
+  it('restores a custom prop through an INCREMENTAL undo step (not just full snapshots)', () => {
+    const block = store.blocks[0]
+    block.image = { src: 'a' }
+    store.history.push('setText')     // full snapshot: src 'a'
+
+    block.image = { src: 'b' }
+    store.history.push('applyStyle')  // incremental (same block ids, non-structural type)
+
+    block.image = { src: 'c' }
+    store.history.push('removeStyle') // second incremental — undo lands on the first
+
+    store.history.undo()
+    expect(store.blocks[0].image).toEqual({ src: 'b' })
+  })
+
+  it('does not throw on non-JSON-safe custom props (circular refs, Dates, functions)', () => {
+    const block = store.blocks[0]
+    const circular: Record<string, unknown> = { name: 'w' }
+    circular.self = circular
+    const date = new Date(0)
+    const fn = () => 'x'
+    block.widget = circular
+    block.createdAt = date
+    block.onRender = fn
+    expect(() => store.history.push('setText')).not.toThrow()
+
+    // Non-plain values keep their identity through undo; cycles survive cloning.
+    block.widget = { name: 'changed' }
+    store.history.push('setText')
+    store.history.undo()
+    expect(store.blocks[0].createdAt).toBe(date)
+    expect(store.blocks[0].onRender).toBe(fn)
+    const restored = store.blocks[0].widget as Record<string, unknown>
+    expect(restored.name).toBe('w')
+    expect(restored.self).toBe(restored)
+  })
+
+  it('preserves block object identity across a full-update undo (keyed re-render stays minimal)', () => {
+    type(store, 'hello')
+    setCaret(store, 0, 5)
+    store.addNewLine()
+    const first = store.blocks[0]
+    store.history.undo()
+    expect(store.blocks[0]).toBe(first)
+  })
+
+  it('does not resurrect a deleted custom prop on undo/redo (replace, not assign)', () => {
+    const block = store.blocks[0]
+    block.image = { src: 'x' }
+    store.history.push('setText')     // snapshot WITH the custom prop
+
+    delete block.image
+    store.history.push('setText')     // snapshot WITHOUT it
+
+    store.history.undo()              // back to WITH image
+    expect(store.blocks[0].image).toEqual({ src: 'x' })
+
+    store.history.redo()              // forward to WITHOUT image — must not linger
+    expect('image' in store.blocks[0]).toBe(false)
+  })
+
   it('does not let undo mutate a sibling history snapshot (no aliasing)', () => {
     type(store, 'hello')
     setCaret(store, 0, 5)

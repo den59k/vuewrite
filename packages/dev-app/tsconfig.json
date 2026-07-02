@@ -21,7 +21,8 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "vuewrite/markdown": ["../vuewrite/src/markdown.ts"]
+      "vuewrite/markdown": ["../vuewrite/src/markdown.ts"],
+      "vuewrite/table": ["../vuewrite/src/table.ts"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"],

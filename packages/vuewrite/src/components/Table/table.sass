@@ -1,0 +1,68 @@
+// Structural styles for TableEditor / TableViewer, imported once by the
+// `vuewrite/table` entry. Published builds extract this into dist/style.css —
+// consumers load it with `import "vuewrite/style.css"`. Theming is theirs.
+
+.vw-table
+  display: inline-block
+  position: relative
+
+.vw-table-grid
+  border-collapse: collapse
+
+.vw-table-cell
+  position: relative
+  border: 1px solid currentColor
+  padding: 4px 8px
+  vertical-align: top
+  min-width: 48px
+
+  & > [contenteditable]
+    outline: none
+    min-height: 1em
+
+.vw-table-remove
+  position: absolute
+  border: none
+  background: none
+  color: inherit
+  cursor: pointer
+  opacity: 0
+  padding: 0
+  width: 16px
+  height: 16px
+  line-height: 16px
+  font-size: 14px
+
+.vw-table-remove-row
+  left: -18px
+  top: 50%
+  transform: translateY(-50%)
+
+.vw-table-remove-col
+  top: -18px
+  left: 50%
+  transform: translateX(-50%)
+
+.vw-table:hover .vw-table-remove
+  opacity: 0.5
+
+  &:hover
+    opacity: 1
+
+.vw-table-toolbar
+  display: flex
+  gap: 4px
+  margin-top: 4px
+
+.vw-table-btn
+  background: none
+  border: 1px solid currentColor
+  border-radius: 4px
+  color: inherit
+  cursor: pointer
+  font-size: 12px
+  padding: 2px 8px
+  opacity: 0.6
+
+  &:hover
+    opacity: 1

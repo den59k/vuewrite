@@ -1,6 +1,6 @@
-import { Style, TextEditorStore } from "./TextEditorStore"
+import { Block, Style, TableAlign, TableCell, TextEditorStore } from "./TextEditorStore"
 
-export type ParsedBlock = { text: string, type?: string, editable?: boolean, styles?: Style[] }
+export type ParsedBlock = { text: string, type?: string, editable?: boolean, styles?: Style[], rows?: TableCell[][], align?: TableAlign[] }
 
 type HtmlParser = (el: Element) => string | null | void
 
@@ -74,6 +74,47 @@ const trimWithStyles = (text: string, styles: Style[]): { text: string, styles: 
   return { text: trimmed, styles: adjusted }
 }
 
+/** Column alignment of a cell element, from its `align` attribute or text-align style. */
+const parseCellAlign = (cell: HTMLElement): TableAlign => {
+  const value = cell.getAttribute("align") ?? cell.style?.textAlign ?? ""
+  return value === "left" || value === "center" || value === "right" ? value : null
+}
+
+/** Reads a <table>'s rows into TableCell[][]. Only direct <tr> (and those inside
+ *  thead/tbody/tfoot) are collected, so a nested table is flattened into its
+ *  cell's text by `append` rather than becoming rows of its own. Rows are padded
+ *  to equal width so consumers can read defensively. Column alignment is taken
+ *  from the first row's cells. */
+const parseTableRows = (table: HTMLElement): { rows: TableCell[][], align?: TableAlign[] } => {
+  const trs: HTMLElement[] = []
+  for (const child of table.children) {
+    if (child.tagName === "TR") trs.push(child as HTMLElement)
+    else if (child.tagName === "THEAD" || child.tagName === "TBODY" || child.tagName === "TFOOT") {
+      for (const tr of child.children) if (tr.tagName === "TR") trs.push(tr as HTMLElement)
+    }
+  }
+
+  const rows: TableCell[][] = []
+  const align: TableAlign[] = []
+  for (const tr of trs) {
+    const cells: TableCell[] = []
+    for (const cell of tr.children) {
+      if (cell.tagName !== "TD" && cell.tagName !== "TH") continue
+      if (rows.length === 0) align.push(parseCellAlign(cell as HTMLElement))
+      const acc = { text: "", styles: [] as Style[] }
+      append(acc, cell, false)
+      const trimmed = trimWithStyles(acc.text, acc.styles)
+      cells.push(trimmed.styles.length ? { text: trimmed.text, styles: trimmed.styles } : { text: trimmed.text })
+    }
+    if (cells.length) rows.push(cells)
+  }
+
+  const cols = rows.reduce((max, r) => Math.max(max, r.length), 0)
+  for (const r of rows) while (r.length < cols) r.push({ text: "" })
+  while (align.length < cols) align.push(null)
+  return align.some(a => a !== null) ? { rows, align } : { rows }
+}
+
 const makeBlock = (result: { text: string, styles: Style[] }, type?: string): ParsedBlock => {
   const block: ParsedBlock = type !== undefined ? { text: result.text, type } : { text: result.text }
   if (result.styles.length) block.styles = result.styles
@@ -87,6 +128,8 @@ const makeBlock = (result: { text: string, styles: Style[] }, type?: string): Pa
  * - Block elements (<div>, <p>, <h1..6>, <li>, …) each become one block.
  * - <ul>/<ol> expand to one block per <li> (type defaults to "li"/"ol").
  * - <hr> becomes an atomic { type: "hr", editable: false } block.
+ * - <table> becomes an atomic { type: "table", editable: false, rows } block
+ *   (from Excel / Google Sheets / Docs / web pages).
  * - <br> becomes a "\n" inside the current block's text.
  * - Loose text and inline elements (<span>, <b>, …) are folded into one block.
  * - Inline tags (<b>/<i>/<u>/<code>/<a>/<span style="color">) become styles.
@@ -116,6 +159,15 @@ export const htmlToBlocks = (root: HTMLElement, htmlParser?: HtmlParser): Parsed
       if (tag === "HR") {
         flush()
         out.push({ text: "", type: htmlParser?.(el) ?? "hr", editable: false })
+        continue
+      }
+
+      if (tag === "TABLE") {
+        flush()
+        // An empty <table> produces no block at all — a rows:[] table would render
+        // as a zero-cell grid and wouldn't round-trip through markdown.
+        const { rows, align } = parseTableRows(el)
+        if (rows.length) out.push({ type: "table", editable: false, text: "", rows, ...(align ? { align } : {}) })
         continue
       }
 
@@ -201,6 +253,34 @@ export const stylesToHtml = (text: string, styles?: Style[]): string => {
   return html
 }
 
+/** Serializes table rows to a real <table> (row 0 as <thead>/<th>, the rest as
+ *  <tbody>/<td>), so a copied table round-trips into spreadsheets and docs.
+ *  Column alignment is emitted as `align` attributes, the inverse of parseCellAlign. */
+const tableToHtml = (rows: TableCell[][], align?: TableAlign[]): string => {
+  const row = (cells: TableCell[], tag: "th" | "td") =>
+    `<tr>${cells.map((c, i) => {
+      const a = align?.[i]
+      return `<${tag}${a ? ` align="${a}"` : ""}>${stylesToHtml(c?.text ?? "", c?.styles)}</${tag}>`
+    }).join("")}</tr>`
+  const [head, ...body] = rows
+  const thead = head ? `<thead>${row(head, "th")}</thead>` : ""
+  const tbody = body.length ? `<tbody>${body.map(r => row(r, "td")).join("")}</tbody>` : ""
+  return `<table>${thead}${tbody}</table>`
+}
+
+/** The table payload of a block, or undefined when the block isn't a table —
+ *  a custom block carrying its own `rows` prop must not be treated as one. */
+const tableOf = (block: Block): { rows: TableCell[][], align?: TableAlign[] } | undefined => {
+  if (block.type !== "table" || !Array.isArray(block.rows)) return undefined
+  const align = Array.isArray(block.align) ? block.align as TableAlign[] : undefined
+  return { rows: block.rows as TableCell[][], align }
+}
+
+/** Serializes table rows to TSV (cells joined by tabs, rows by newlines) so a
+ *  copied table pastes cleanly into Excel / Google Sheets. */
+const tableToText = (rows: TableCell[][]): string =>
+  rows.map(r => r.map(c => (c?.text ?? "").replace(/[\t\n]/g, " ")).join("\t")).join("\n")
+
 /** Extracts the styles overlapping [from, to) and rebases them to start at 0. */
 const sliceStyles = (styles: Style[] | undefined, from: number, to: number): Style[] => {
   if (!styles) return []
@@ -224,6 +304,15 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
 
     if (startIndex === endIndex) {
       const block = store.blocks[startIndex]
+      const table = tableOf(block)
+      if (table) {
+        return [
+          new ClipboardItem({
+            "text/html":  new Blob([ tableToHtml(table.rows, table.align) ], { type: "text/html" }),
+            "text/plain": new Blob([ tableToText(table.rows) ], { type: "text/plain" })
+          })
+        ]
+      }
       const text = block.text.slice(start.offset, end.offset)
       const styles = sliceStyles(block.styles, start.offset, end.offset)
       return [
@@ -239,16 +328,22 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
         type: store.blocks[startIndex].type,
         text: store.blocks[startIndex].text.slice(start.offset),
         styles: sliceStyles(store.blocks[startIndex].styles, start.offset, store.blocks[startIndex].text.length),
+        table: tableOf(store.blocks[startIndex]),
       },
-      ...store.blocks.slice(startIndex + 1, endIndex).map(b => ({ type: b.type, text: b.text, styles: b.styles ?? [] })),
+      ...store.blocks.slice(startIndex + 1, endIndex).map(b => ({ type: b.type, text: b.text, styles: b.styles ?? [], table: tableOf(b) })),
       {
         type: store.blocks[endIndex].type,
         text: store.blocks[endIndex].text.slice(0, end.offset),
         styles: sliceStyles(store.blocks[endIndex].styles, 0, end.offset),
+        table: tableOf(store.blocks[endIndex]),
       },
     ]
-    const html = arr.map(item => item.type === "hr" ? "<hr>" : `<div>${stylesToHtml(item.text, item.styles)}</div>`).join("\n")
-    const text = arr.map(item => item.text).join("\n")
+    const html = arr.map(item =>
+      item.table ? tableToHtml(item.table.rows, item.table.align) :
+      item.type === "hr" ? "<hr>" :
+      `<div>${stylesToHtml(item.text, item.styles)}</div>`
+    ).join("\n")
+    const text = arr.map(item => item.table ? tableToText(item.table.rows) : item.text).join("\n")
 
     return [
       new ClipboardItem({
@@ -296,9 +391,20 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
       if (i > 0 || (atomic && store.currentBlock !== null && store.currentBlock.text !== "")) {
         store.addNewLine()
       }
+      // addNewLine moves the text after the caret into the current block; an atomic
+      // block must not swallow it — split again and step back onto the empty block.
+      if (atomic && store.currentBlock && store.currentBlock.text !== "") {
+        store.addNewLine() // caret is at offset 0, so this inserts an empty block before
+        const index = store.blocks.findIndex(b => b.id === store.selection.anchor.blockId)
+        const empty = store.blocks[index - 1]
+        store.selection.anchor = { blockId: empty.id, offset: 0 }
+        store.selection.focus = { blockId: empty.id, offset: 0 }
+      }
       if (store.currentBlock) {
         if (block.type !== undefined) store.currentBlock.type = block.type
         if (block.editable !== undefined) store.currentBlock.editable = block.editable
+        if (block.rows !== undefined) store.currentBlock.rows = block.rows
+        if (block.align !== undefined) store.currentBlock.align = block.align
       }
       if (block.text) {
         const at = store.selection.focus.offset
@@ -315,9 +421,19 @@ export const createClipboardEvents = (store: TextEditorStore, props: {
       }
     })
 
-    // Don't leave the caret stuck on a trailing non-editable block (e.g. <hr>).
+    // Don't leave the caret stuck on a trailing non-editable block (e.g. <hr>):
+    // move it to the following text block when one exists, else add a new line.
     const last = blocks[blocks.length - 1]
-    if (last && last.editable === false) store.addNewLine()
+    if (last && last.editable === false) {
+      const index = store.blocks.findIndex(b => b.id === store.selection.anchor.blockId)
+      const next = store.blocks[index + 1]
+      if (next && next.editable !== false) {
+        store.selection.anchor = { blockId: next.id, offset: 0 }
+        store.selection.focus = { blockId: next.id, offset: 0 }
+      } else {
+        store.addNewLine()
+      }
+    }
   }
 
   const parser = new DOMParser()

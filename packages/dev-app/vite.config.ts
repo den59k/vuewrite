@@ -13,6 +13,7 @@ export default defineConfig({
   resolve: {
     alias: {
       'vuewrite/markdown': resolve(__dirname, '../vuewrite/src/markdown.ts'),
+      'vuewrite/table': resolve(__dirname, '../vuewrite/src/table.ts'),
       'vuewrite': resolve(__dirname, '../vuewrite/src/index.ts'),
     }
   }

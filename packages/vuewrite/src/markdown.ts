@@ -6,6 +6,8 @@
 import { markdownToBlocks as _markdownToBlocks, blocksToMarkdown as _blocksToMarkdown } from "vuewrite-markdown"
 
 export type Style = { start: number; end: number; style: string; meta?: Record<string, unknown> }
+export type TableCell = { text: string; styles?: Style[] }
+export type TableAlign = "left" | "center" | "right" | null
 export type Block = { id: string; text: string; type?: string; styles?: Style[]; editable?: boolean; [key: string]: unknown }
 
 export const markdownToBlocks: (markdown: string, previousBlocks?: Block[], options?: { softBreaks?: boolean }) => Block[] = _markdownToBlocks

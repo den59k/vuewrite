@@ -9,6 +9,7 @@ export default defineConfig({
       entry: {
         vuewrite: "./src/index.ts",
         markdown: "./src/markdown.ts",
+        table: "./src/table.ts",
       },
       formats: [ "es" ],
     },
