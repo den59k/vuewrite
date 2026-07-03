@@ -1,8 +1,10 @@
 import { computed } from 'vue'
 import type { Block, TableAlign, TableCell } from '../TextEditor/TextEditorStore'
 
-/** Alignments the column-handle button cycles through, in order. */
-export const TABLE_ALIGN_CYCLE: TableAlign[] = [null, 'center', 'right']
+/** Payload of `TableEditor`'s `contextmenu` event — the right-clicked cell's
+ *  coordinates plus the native event (consumers call `preventDefault` and open
+ *  their own menu). */
+export type TableContextMenuEvent = { event: MouseEvent; row: number; col: number }
 
 /** Unwraps a table block's data contract (`rows`, `align`) for the table
  *  components — the one home for these casts, shared by editor and viewer. */

@@ -1,6 +1,7 @@
 import TableEditor from './components/Table/TableEditor.vue'
 import TableViewer from './components/Table/TableViewer.vue'
 import type { Block, TableAlign, TableCell } from './components/TextEditor/TextEditorStore'
+import type { TableContextMenuEvent } from './components/Table/tableBlock'
 // Structural CSS for both components. Extracted to dist/style.css at build time —
 // published consumers load it via `import "vuewrite/style.css"`.
 import './components/Table/table.sass'
@@ -17,4 +18,4 @@ export const createTableBlock = (rows = 2, cols = 2): Partial<Block> => ({
 })
 
 export { TableEditor, TableViewer }
-export type { TableCell, TableAlign }
+export type { TableCell, TableAlign, TableContextMenuEvent }

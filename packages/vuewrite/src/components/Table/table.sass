@@ -2,40 +2,44 @@
 // `vuewrite/table` entry. Published builds extract this into dist/style.css —
 // consumers load it with `import "vuewrite/style.css"`.
 //
-// Colours default to a theme-neutral tint of the surrounding text colour
-// (`currentColor`) via CSS custom properties, so the table looks presentable
-// out of the box on any background. Consumers override the `--vw-table-*`
-// variables (or the classes directly) to match their own theme.
+// The editor stays visually quiet: at rest it is just a table. Controls live in
+// thin gutters and only fade in on hover — thin rails on the top/left (hover one
+// to reveal a single delete), and faint "+" bars on the right/bottom edges to
+// add. Colours default to a theme-neutral tint of the surrounding text colour
+// (`currentColor`) via CSS custom properties, so it looks presentable on any
+// background; consumers override the `--vw-table-*` variables (or classes) to
+// theme it.
 
 .vw-table
-  --vw-table-gutter: 22px
+  --vw-table-gutter: 16px
+  --vw-table-add-gap: 16px
   --vw-table-radius: 8px
   --vw-table-border: color-mix(in srgb, currentColor 16%, transparent)
-  --vw-table-header-bg: color-mix(in srgb, currentColor 5%, transparent)
-  --vw-table-hover-bg: color-mix(in srgb, currentColor 7%, transparent)
-  --vw-table-handle-bg: color-mix(in srgb, currentColor 8%, transparent)
-  --vw-table-handle-bg-active: color-mix(in srgb, currentColor 16%, transparent)
-  --vw-table-muted: color-mix(in srgb, currentColor 55%, transparent)
-  --vw-table-accent: #3b82f6
+  --vw-table-header-bg: color-mix(in srgb, currentColor 4%, transparent)
+  --vw-table-hover-bg: color-mix(in srgb, currentColor 6%, transparent)
+  --vw-table-control-bg: color-mix(in srgb, currentColor 8%, transparent)
+  --vw-table-control-bg-hover: color-mix(in srgb, currentColor 15%, transparent)
+  --vw-table-muted: color-mix(in srgb, currentColor 50%, transparent)
   --vw-table-danger: #ef4444
 
   position: relative
   display: inline-block
   max-width: 100%
-  padding: var(--vw-table-gutter) 0 0 var(--vw-table-gutter)
+  padding: var(--vw-table-gutter) var(--vw-table-add-gap) var(--vw-table-add-gap) var(--vw-table-gutter)
 
 // Read-only viewer: no gutters, no interactive affordances.
 .vw-table-static
   padding: 0
 
 // The outer frame lives on the wrapper's own border, which `border-radius`
-// rounds WITHOUT clipping — so the row/column handles in the gutters stay
-// visible. Cells draw only their inner grid lines to avoid doubling the frame.
+// rounds WITHOUT clipping — so the gutter controls stay visible. Cells draw only
+// their inner grid lines to avoid doubling the frame.
 .vw-table-scroll
   max-width: 100%
   overflow: visible
   border: 1px solid var(--vw-table-border)
   border-radius: var(--vw-table-radius)
+  transition: background-color .12s ease
 
 // Read-only viewer has no gutter affordances, so it can clip + scroll wide grids.
 .vw-table-static .vw-table-scroll
@@ -70,159 +74,75 @@ th.vw-table-cell
   text-align: inherit
   background: var(--vw-table-header-bg)
 
-// Whole-row / whole-column highlight while a handle is hovered.
-tr.is-row-hover > .vw-table-cell,
-.vw-table-cell.is-col-hover
+// Whole-table tint while the corner handle is hovered.
+.vw-table-scroll.is-table-hover .vw-table-cell
   background: var(--vw-table-hover-bg)
 
-// ── Row / column handles (live in the gutters) ─────────────────────────────────
+// ── Add bars (right / bottom edges) ────────────────────────────────────────────
 
-.vw-table-handle
+.vw-table-add
   position: absolute
   z-index: 2
   display: flex
   align-items: center
   justify-content: center
-  gap: 1px
-  border-radius: 5px
-  background: var(--vw-table-handle-bg)
-  color: var(--vw-table-muted)
-  opacity: 0
-  cursor: pointer
-  transition: opacity .12s ease, background-color .12s ease
-
-  &.active
-    background: var(--vw-table-handle-bg-active)
-    color: inherit
-
-.vw-table-handle-col
-  left: 1px
-  right: 1px
-  bottom: 100%
-  margin-bottom: 4px
-  height: 15px
-
-.vw-table-handle-row
-  top: 1px
-  bottom: 1px
-  right: 100%
-  margin-right: 4px
-  width: 15px
-  flex-direction: column
-
-.vw-table:hover .vw-table-handle
-  opacity: 1
-
-.vw-table-handle-btn
-  display: flex
-  align-items: center
-  justify-content: center
-  border: none
-  background: none
-  color: inherit
   padding: 0
-  width: 15px
-  height: 15px
-  font-size: 12px
-  border-radius: 4px
+  border: none
+  border-radius: 5px
+  background: var(--vw-table-control-bg)
+  color: var(--vw-table-muted)
+  font-size: 13px
   cursor: pointer
-  opacity: 0.55
+  opacity: 0
   transition: opacity .12s ease, color .12s ease, background-color .12s ease
 
   &:hover
-    opacity: 1
-    background: color-mix(in srgb, currentColor 14%, transparent)
+    color: inherit
+    background: var(--vw-table-control-bg-hover)
 
-  &.vw-table-handle-del:hover
-    color: var(--vw-table-danger)
+.vw-table:hover .vw-table-add
+  opacity: 1
 
-// ── Insert buttons (a “+” on each row / column boundary) ───────────────────────
+.vw-table-add-col
+  top: var(--vw-table-gutter)
+  bottom: var(--vw-table-add-gap)
+  right: 0
+  width: 13px
 
-.vw-table-insert
+.vw-table-add-row
+  left: var(--vw-table-gutter)
+  right: var(--vw-table-add-gap)
+  bottom: 0
+  height: 13px
+
+// ── Corner handle (delete whole table) ─────────────────────────────────────────
+
+.vw-table-corner
   position: absolute
-  z-index: 3
+  z-index: 2
+  top: 0
+  left: 0
   display: flex
   align-items: center
   justify-content: center
-  width: 17px
-  height: 17px
+  width: 16px
+  height: 16px
   padding: 0
   border: none
-  border-radius: 50%
-  background: var(--vw-table-accent)
-  color: #fff
+  border-radius: 5px
+  background: none
+  color: var(--vw-table-muted)
   font-size: 11px
   cursor: pointer
   opacity: 0
-  transform-origin: center
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25)
-  transition: opacity .12s ease, transform .1s ease
+  transition: opacity .12s ease, color .12s ease, background-color .12s ease
 
   &:hover
-    opacity: 1 !important
-    transform: var(--vw-ins-transform) scale(1.12)
-
-.vw-table:hover .vw-table-insert
-  opacity: 0.28
-
-.vw-table-insert-col
-  --vw-ins-transform: translate(50%, calc(-100% - 5px))
-  top: 0
-  right: 0
-  transform: var(--vw-ins-transform)
-
-  &.vw-table-insert-first
-    --vw-ins-transform: translate(-50%, calc(-100% - 5px))
-    right: auto
-    left: 0
-
-.vw-table-insert-row
-  --vw-ins-transform: translate(calc(-100% - 5px), -50%)
-  left: 0
-  top: 100%
-  transform: var(--vw-ins-transform)
-
-  &.vw-table-insert-first
-    top: 0
-
-// ── Toolbar ────────────────────────────────────────────────────────────────────
-
-.vw-table-toolbar
-  display: flex
-  align-items: center
-  gap: 6px
-  margin-top: 8px
-  opacity: 0
-  transition: opacity .12s ease
-
-.vw-table:hover .vw-table-toolbar,
-.vw-table:focus-within .vw-table-toolbar
-  opacity: 1
-
-.vw-table-toolbar-spacer
-  flex: 1 1 auto
-
-.vw-table-btn
-  display: inline-flex
-  align-items: center
-  gap: 5px
-  background: var(--vw-table-handle-bg)
-  border: 1px solid transparent
-  border-radius: 6px
-  color: var(--vw-table-muted)
-  cursor: pointer
-  font-size: 12px
-  line-height: 1
-  padding: 5px 10px
-  transition: color .12s ease, background-color .12s ease
-
-  & > svg
-    font-size: 13px
-
-  &:hover
-    color: inherit
-    background: var(--vw-table-handle-bg-active)
-
-  &.vw-table-btn-danger:hover
     color: var(--vw-table-danger)
-    background: color-mix(in srgb, var(--vw-table-danger) 12%, transparent)
+    background: var(--vw-table-control-bg)
+
+.vw-table:hover .vw-table-corner
+  opacity: 0.5
+
+  &:hover
+    opacity: 1

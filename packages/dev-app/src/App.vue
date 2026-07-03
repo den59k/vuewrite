@@ -58,10 +58,12 @@
           </template>
           <template #table="{ props, block }">
             <TableEditor
+              :ref="(el: any) => setTableRef(block.id, el)"
               :block="block"
               :decorator="decorator"
               :editor="textEditorRef"
               v-bind="props"
+              @contextmenu="onTableContextMenu($event, block)"
             />
           </template>
           <template #placeholder>
@@ -131,16 +133,31 @@
       >{{ item.title }}</button>
     </VPopover>
 
+    <VPopover
+      v-model:open="tableMenu.open"
+      :anchor-position="{ x: tableMenu.x, y: tableMenu.y }"
+      placement="bottom-start"
+      class="custom-blocks-popover"
+    >
+      <button
+        v-for="action in tableMenuActions"
+        :key="action.title"
+        :class="{ danger: action.danger }"
+        @click="runTableAction(action)"
+      >{{ action.title }}</button>
+    </VPopover>
+
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
 import { TextEditor, TextViewer, uid } from 'vuewrite'
 import type { TextEditorRef } from 'vuewrite'
 import { markdownToBlocks, blocksToMarkdown } from 'vuewrite/markdown'
 import type { Block } from 'vuewrite/markdown'
 import { TableEditor, TableViewer, createTableBlock } from 'vuewrite/table'
+import type { TableContextMenuEvent } from 'vuewrite/table'
 
 import BoldIcon from './components/icons/BoldIcon.vue'
 import ItalicIcon from './components/icons/ItalicIcon.vue'
@@ -324,6 +341,55 @@ watch(currentWord, (word) => {
     popoverOpen.value = false
   }
 }, { flush: 'post' })
+
+// ── Table context menu ─────────────────────────────────────────────────────────
+// Demonstrates the third-party integration path: TableEditor stays presentational
+// and emits `contextmenu` with the target cell; the host builds the menu and
+// drives edits through the component's exposed methods.
+
+type TableEditorRef = InstanceType<typeof TableEditor>
+const tableRefs = new Map<string, TableEditorRef>()
+const setTableRef = (id: string, el: TableEditorRef | null) => {
+  if (el) tableRefs.set(id, el)
+  else tableRefs.delete(id)
+}
+
+const tableMenu = reactive({ open: false, x: 0, y: 0, blockId: '', row: -1, col: -1 })
+
+const onTableContextMenu = (payload: TableContextMenuEvent, block: Block) => {
+  payload.event.preventDefault()
+  Object.assign(tableMenu, {
+    open: true,
+    x: payload.event.clientX,
+    y: payload.event.clientY,
+    blockId: block.id,
+    row: payload.row,
+    col: payload.col,
+  })
+}
+
+const tableMenuActions = computed(() => {
+  const t = tableRefs.get(tableMenu.blockId)
+  if (!t) return []
+  const { row, col } = tableMenu
+  return [
+    { title: 'Insert row above',    run: () => t.insertRowAt(row) },
+    { title: 'Insert row below',    run: () => t.insertRowAt(row + 1) },
+    { title: 'Insert column left',  run: () => t.insertColumnAt(col) },
+    { title: 'Insert column right', run: () => t.insertColumnAt(col + 1) },
+    { title: 'Align left',          run: () => t.setColumnAlign(col, null) },
+    { title: 'Align center',        run: () => t.setColumnAlign(col, 'center') },
+    { title: 'Align right',         run: () => t.setColumnAlign(col, 'right') },
+    { title: 'Delete row',          run: () => t.removeRow(row),    danger: true },
+    { title: 'Delete column',       run: () => t.removeColumn(col), danger: true },
+    { title: 'Delete table',        run: () => t.deleteTable(),     danger: true },
+  ]
+})
+
+const runTableAction = (action: { run: () => void }) => {
+  action.run()
+  tableMenu.open = false
+}
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
@@ -522,17 +588,16 @@ const onKeyDown = (e: KeyboardEvent) => {
 
   // ── Table theming (structural CSS ships with vuewrite/table) ──────────────
   // The library ships theme-neutral defaults derived from currentColor; here we
-  // just tune the `--vw-table-*` variables to the app's dark palette + accent.
+  // just tune the `--vw-table-*` variables to the app's dark palette.
 
   .vw-table
     margin: 12px 0
     --vw-table-border: rgba(255, 255, 255, 0.15)
-    --vw-table-header-bg: rgba(255, 255, 255, 0.05)
+    --vw-table-header-bg: rgba(255, 255, 255, 0.04)
     --vw-table-hover-bg: rgba(255, 255, 255, 0.06)
-    --vw-table-handle-bg: rgba(255, 255, 255, 0.08)
-    --vw-table-handle-bg-active: rgba(255, 255, 255, 0.16)
-    --vw-table-muted: rgba(255, 255, 255, 0.55)
-    --vw-table-accent: #0066FF
+    --vw-table-control-bg: rgba(255, 255, 255, 0.1)
+    --vw-table-control-bg-hover: rgba(255, 255, 255, 0.18)
+    --vw-table-muted: rgba(255, 255, 255, 0.5)
     --vw-table-danger: #FF6B6B
 
 .placeholder
@@ -624,8 +689,15 @@ const onKeyDown = (e: KeyboardEvent) => {
     align-items: center
     padding: 0 16px
     cursor: pointer
+    text-align: left
 
     &.active
       background-color: rgba(255, 255, 255, 0.08)
+
+    &:hover
+      background-color: rgba(255, 255, 255, 0.08)
+
+    &.danger
+      color: #FF6B6B
 
 </style>
