@@ -204,6 +204,54 @@ describe('TextEditorStore — styles', () => {
     ])
   })
 
+  it('toggling off a style with a collapsed caret strips the whole range', () => {
+    setRange(store, 0, 0, 0, 5)
+    store.applyStyle('bold') // "hello" is bold
+    setCaret(store, 0, 2) // caret in the middle of the bold range
+    expect(store.currentStyles.has('bold')).toBe(true)
+    store.toggleStyle('bold')
+    expect(store.blocks[0].styles).toBeUndefined()
+    expect(store.currentStyles.has('bold')).toBe(false)
+  })
+
+  it('queues a style on a collapsed caret and paints the next typed text', () => {
+    setCaret(store, 0, 5)
+    store.toggleStyle('bold') // nothing selected → queued
+    expect(store.currentStyles.has('bold')).toBe(true) // toolbar reflects it
+    expect(store.blocks[0].styles ?? []).toEqual([]) // but nothing painted yet
+    type(store, 'X')
+    expect(store.blocks[0].text).toBe('helloX')
+    expect(store.blocks[0].styles).toEqual([{ start: 5, end: 6, style: 'bold', meta: undefined }])
+  })
+
+  it('keeps painting queued style across several typed characters', () => {
+    setCaret(store, 0, 5)
+    store.toggleStyle('bold')
+    type(store, 'abc')
+    expect(store.blocks[0].text).toBe('helloabc')
+    expect(store.blocks[0].styles).toEqual([{ start: 5, end: 8, style: 'bold', meta: undefined }])
+  })
+
+  it('toggling a queued style off again cancels it', () => {
+    setCaret(store, 0, 5)
+    store.toggleStyle('bold')
+    expect(store.currentStyles.has('bold')).toBe(true)
+    store.toggleStyle('bold') // cancel before typing
+    expect(store.currentStyles.has('bold')).toBe(false)
+    type(store, 'X')
+    expect(store.blocks[0].styles ?? []).toEqual([])
+  })
+
+  it('drops a queued style when the caret moves away', () => {
+    setCaret(store, 0, 5)
+    store.toggleStyle('bold')
+    setCaret(store, 0, 2) // caret moved
+    store.syncPendingStyles()
+    expect(store.currentStyles.has('bold')).toBe(false)
+    type(store, 'X')
+    expect(store.blocks[0].styles ?? []).toEqual([])
+  })
+
   it('shifts styles left when earlier text is deleted', () => {
     setRange(store, 0, 2, 0, 5)
     store.applyStyle('bold') // bold on "llo" → { 2, 5 }

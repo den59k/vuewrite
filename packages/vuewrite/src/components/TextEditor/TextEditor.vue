@@ -148,6 +148,7 @@ const onSelectionChange = () => {
   if (anchor && focus) {
     cachedSelection = JSON.parse(JSON.stringify(store.selection))
   }
+  store.syncPendingStyles()
 }
 onMounted(() => document.addEventListener("selectionchange", onSelectionChange))
 onUnmounted(() => document.removeEventListener("selectionchange", onSelectionChange))

@@ -35,6 +35,35 @@ export class TextEditorStore {
   isComposing = false
   private compositionSelection: TextEditorSelection | null = null
 
+  /** Styles queued for the next inserted text while the caret is collapsed
+   *  ("stored marks"): toggling a style on with nothing selected remembers it
+   *  here and paints whatever gets typed next. Valid only while the caret stays
+   *  at the exact position it was toggled at — see {@link isPendingValid}. */
+  pendingStyles = reactive(new Map<string, any>())
+  private pendingBlockId: string | null = null
+  private pendingOffset = -1
+
+  private get isPendingValid() {
+    return this.pendingStyles.size > 0 &&
+      this.isCollapsed &&
+      this.selection.focus.blockId === this.pendingBlockId &&
+      this.selection.focus.offset === this.pendingOffset
+  }
+
+  private clearPendingStyles() {
+    if (this.pendingStyles.size > 0) this.pendingStyles.clear()
+    this.pendingBlockId = null
+    this.pendingOffset = -1
+  }
+
+  /** Drops queued styles once the caret leaves the position they were set at.
+   *  The host calls this on every user-driven selection change. */
+  syncPendingStyles() {
+    if (this.pendingStyles.size > 0 && !this.isPendingValid) {
+      this.clearPendingStyles()
+    }
+  }
+
   _currentBlock = computed(() => {
     if (this.selection.anchor.blockId !== this.selection.focus.blockId) return null
     return this.blocks.find(item => item.id === this.selection.anchor.blockId) ?? null
@@ -267,9 +296,18 @@ export class TextEditorStore {
   insertText(data: string) {
     const block = this.currentBlock
     if (!block) return
+    const pending = this.isPendingValid ? [ ...this.pendingStyles ] : null
+    const startOffset = this.selection.focus.offset
     const text = data.replace(/\r/g, "")
-    block.text = block.text.slice(0, this.selection.focus.offset) + text + block.text.slice(this.selection.focus.offset)
-    this.moveOffset(clamp(this.selection.focus.offset + text.length, 0, block.text.length))
+    block.text = block.text.slice(0, startOffset) + text + block.text.slice(startOffset)
+    this.moveOffset(clamp(startOffset + text.length, 0, block.text.length))
+    if (pending && text.length > 0) {
+      // Paint the queued styles onto exactly the text we just inserted.
+      for (const [ style, meta ] of pending) {
+        this.addStyleToBlock(block, { start: startOffset, end: startOffset + text.length, style, meta })
+      }
+    }
+    this.clearPendingStyles()
   }
 
   insertBlock(blockData: Partial<Block>) {
@@ -356,6 +394,12 @@ export class TextEditorStore {
         styles.set(style.style, style)
       }
     }
+    if (this.isPendingValid) {
+      const offset = this.selection.focus.offset
+      for (const [ style, meta ] of this.pendingStyles) {
+        styles.set(style, { start: offset, end: offset, style, meta })
+      }
+    }
     return styles
   })
   get currentStyles() {
@@ -363,7 +407,13 @@ export class TextEditorStore {
   }
 
   applyStyle(_style: string, meta?: any) {
-    if (this.isCollapsed) return
+    if (this.isCollapsed) {
+      // Nothing to paint yet — queue the style so the next typed text picks it up.
+      this.pendingStyles.set(_style, meta)
+      this.pendingBlockId = this.selection.focus.blockId
+      this.pendingOffset = this.selection.focus.offset
+      return
+    }
     const [ start, end, startIndex, endIndex ] = this.startAndEnd
     for (let i = startIndex; i <= endIndex; i++) {
       const block = this.blocks[i]
@@ -427,6 +477,25 @@ export class TextEditorStore {
   }
 
   removeStyle(_style: string) {
+    if (this.isCollapsed) {
+      // Cancel it if it was only queued (toggled on but not yet typed)...
+      this.pendingStyles.delete(_style)
+      if (this.pendingStyles.size === 0) {
+        this.pendingBlockId = null
+        this.pendingOffset = -1
+      }
+      // ...otherwise, if the caret sits inside an existing range of this style,
+      // strip the style from that whole range.
+      const block = this.currentBlock
+      const offset = this.selection.focus.offset
+      const ranges = block?.styles?.filter(style =>
+        style.style === _style && style.start <= offset && style.end >= offset) ?? []
+      for (const range of ranges) {
+        this.removeStyleAt(block!, range.start, range.end, _style)
+      }
+      if (ranges.length > 0) this.history.push("applyStyle")
+      return
+    }
     const [ start, end, startIndex, endIndex ] = this.startAndEnd
     for (let i = startIndex; i <= endIndex; i++) {
       const block = this.blocks[i]
@@ -451,11 +520,11 @@ export class TextEditorStore {
     }
   }
 
-  toggleStyle(style: string) {
+  toggleStyle(style: string, meta?: any) {
     if (this.currentStyles.has(style)) {
       this.removeStyle(style)
     } else {
-      this.applyStyle(style)
+      this.applyStyle(style, meta)
     }
   }
 

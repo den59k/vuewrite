@@ -521,25 +521,19 @@ const onKeyDown = (e: KeyboardEvent) => {
     margin: 2px 0
 
   // ── Table theming (structural CSS ships with vuewrite/table) ──────────────
+  // The library ships theme-neutral defaults derived from currentColor; here we
+  // just tune the `--vw-table-*` variables to the app's dark palette + accent.
 
   .vw-table
     margin: 12px 0
-
-  .vw-table-cell
-    border-color: rgba(255, 255, 255, 0.15)
-
-  // Header row: both editor and viewer render row 0 cells as <th>.
-  th.vw-table-cell
-    font-weight: 600
-    background: rgba(255, 255, 255, 0.04)
-
-  .vw-table-btn
-    color: rgba(255, 255, 255, 0.7)
-    border-color: rgba(255, 255, 255, 0.2)
-
-    &.vw-table-btn-danger:hover
-      color: #FF6B6B
-      border-color: #FF6B6B
+    --vw-table-border: rgba(255, 255, 255, 0.15)
+    --vw-table-header-bg: rgba(255, 255, 255, 0.05)
+    --vw-table-hover-bg: rgba(255, 255, 255, 0.06)
+    --vw-table-handle-bg: rgba(255, 255, 255, 0.08)
+    --vw-table-handle-bg-active: rgba(255, 255, 255, 0.16)
+    --vw-table-muted: rgba(255, 255, 255, 0.55)
+    --vw-table-accent: #0066FF
+    --vw-table-danger: #FF6B6B
 
 .placeholder
   position: absolute
